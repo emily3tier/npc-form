@@ -353,7 +353,7 @@ async function handleSubmit() {
       files: filesPayload
     };
 
-    const resp = await fetch('/.netlify/functions/generate_excel', {
+    const resp = await fetch('/api/generate_excel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
