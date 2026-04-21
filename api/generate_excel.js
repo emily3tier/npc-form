@@ -145,8 +145,14 @@ module.exports = async (req, res) => {
     const refreshToken = process.env.MS_REFRESH_TOKEN;
     if (!refreshToken) throw new Error('MS_REFRESH_TOKEN not set');
 
-    const rawBody = await getRawBody(req);
-    const { formData, products, files } = JSON.parse(rawBody.toString());
+    let parsed;
+    if (req.body && typeof req.body === 'object' && req.body.formData) {
+      parsed = req.body;
+    } else {
+      const rawBody = await getRawBody(req);
+      parsed = JSON.parse(rawBody.toString('utf8'));
+    }
+    const { formData, products, files } = parsed;
 
     const token = await getAccessToken(refreshToken);
     await ensureFolder(token, '', BASE_FOLDER);
