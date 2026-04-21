@@ -130,6 +130,41 @@ function fileToBase64(file) {
   });
 }
 
+// ── Compress image if too large ────────────────
+function compressIfNeeded(file) {
+  return new Promise((resolve) => {
+    if (!file.type.includes('jpeg') && !file.type.includes('jpg')) {
+      resolve(file); return;
+    }
+    if (file.size <= 3.5 * 1024 * 1024) {
+      resolve(file); return;
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      let quality = 0.7;
+      let w = img.width, h = img.height;
+      // Scale down if very large
+      const maxDim = 4000;
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim/w, maxDim/h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => {
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => resolve(file);
+    img.src = url;
+  });
+}
+
 // ── Products ──────────────────────────────────
 let products = [];
 let nextId = 1;
@@ -357,7 +392,8 @@ async function handleSubmit() {
         const ext = file.name.split('.').pop().toLowerCase();
         const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
         const filePath = encodeURIComponent('UPC Submissions Automated') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
-        // Upload directly to OneDrive from browser (bypasses Vercel size limit)
+        // Compress image if needed then upload directly to OneDrive
+        const fileToUpload = await compressIfNeeded(file);
         const graphPath = 'UPC Submissions Automated/' + folderName + '/' + fname;
         const encodedPath = graphPath.split('/').map(s => encodeURIComponent(s)).join('/');
         if (file.size > 4 * 1024 * 1024) {
@@ -369,22 +405,32 @@ async function handleSubmit() {
           });
           if (!sessionResp.ok) throw new Error('Could not create upload session: ' + await sessionResp.text());
           const session = await sessionResp.json();
-          // Upload in 4MB chunks
-          const chunkSize = 4 * 1024 * 1024;
+          // Upload in 3MB chunks via API proxy (avoids CORS on SharePoint URL)
+          const chunkSize = 3 * 1024 * 1024;
           const buf = await file.arrayBuffer();
           let start = 0;
           while (start < file.size) {
             const end = Math.min(start + chunkSize, file.size);
-            const chunk = buf.slice(start, end);
-            const chunkResp = await fetch(session.uploadUrl, {
-              method: 'PUT',
-              headers: {
-                'Content-Length': (end - start).toString(),
-                'Content-Range': 'bytes ' + start + '-' + (end-1) + '/' + file.size
-              },
-              body: chunk
+            const chunk = new Uint8Array(buf.slice(start, end));
+            // Convert to base64 safely
+            let b64 = '';
+            const batchSize = 8192;
+            for (let i = 0; i < chunk.length; i += batchSize) {
+              b64 += String.fromCharCode.apply(null, chunk.subarray(i, i + batchSize));
+            }
+            b64 = btoa(b64);
+            const chunkResp = await fetch('/api/upload_chunk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                uploadUrl: session.uploadUrl,
+                data: b64,
+                start,
+                end: end - 1,
+                total: file.size
+              })
             });
-            if (chunkResp.status >= 400) throw new Error('Chunk upload failed: ' + await chunkResp.text());
+            if (!chunkResp.ok) throw new Error('Chunk upload failed: ' + await chunkResp.text());
             start = end;
           }
         } else {
