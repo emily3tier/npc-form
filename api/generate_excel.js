@@ -15,6 +15,27 @@ function getRawBody(req) {
   });
 }
 
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    const follow = (u) => {
+      https.get(u, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          follow(res.headers.location);
+          return;
+        }
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          if (res.statusCode >= 400) reject(new Error('HTTP ' + res.statusCode + ': ' + buf.toString().substring(0, 200)));
+          else resolve(buf);
+        });
+      }).on('error', reject);
+    };
+    follow(url);
+  });
+}
+
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -70,23 +91,17 @@ async function graphRequest(token, method, path, body, contentType) {
 }
 
 async function graphDownload(token, path) {
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'graph.microsoft.com',
-      path: '/v1.0' + path,
-      method: 'GET',
-      headers: { 'Authorization': 'Bearer ' + token },
-    }, (res) => {
-      const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
-      res.on('end', () => {
-        if (res.statusCode >= 400) reject(new Error('HTTP ' + res.statusCode + ': ' + Buffer.concat(chunks).toString()));
-        else resolve(Buffer.concat(chunks));
-      });
-    });
-    req.on('error', reject);
-    req.end();
+  // First get the download URL from graph API
+  const metaData = await httpsRequest({
+    hostname: 'graph.microsoft.com',
+    path: '/v1.0' + path.replace(':/content', ''),
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer ' + token },
   });
+  const item = JSON.parse(metaData);
+  const downloadUrl = item['@microsoft.graph.downloadUrl'];
+  if (!downloadUrl) throw new Error('No download URL found for template');
+  return httpsGet(downloadUrl);
 }
 
 function enc(s) { return encodeURIComponent(s); }
@@ -108,16 +123,6 @@ async function populateExcel(templateBuf, formData, products) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(templateBuf);
   const sheet = workbook.getWorksheet('New Product Coding Form') || workbook.worksheets[0];
-  
-  // Log all cells with values to find correct positions
-  const cellMap = {};
-  sheet.eachRow((row, rowNum) => {
-    row.eachCell((cell, colNum) => {
-      if (cell.value) cellMap[cell.address] = String(cell.value).substring(0, 50);
-    });
-  });
-  console.log('Cell map:', JSON.stringify(cellMap));
-
   sheet.getCell('B4').value = formData.fromName || '';
   sheet.getCell('D4').value = formData.clientName || '';
   sheet.getCell('B5').value = formData.email || '';
@@ -129,10 +134,8 @@ async function populateExcel(templateBuf, formData, products) {
   if (coding === 'Code by Saturday Date' && formData.saturdayDate) {
     sheet.getCell('C9').value = formData.saturdayDate;
   }
-  // Try both possible cell locations for container type/material
   sheet.getCell('D10').value = formData.containerType || '';
   sheet.getCell('E10').value = formData.containerMaterial || '';
-  
   const addl = formData.additionalInfo || '';
   products.forEach((p, i) => {
     const row = 12 + i;
