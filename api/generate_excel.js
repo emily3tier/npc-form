@@ -140,7 +140,10 @@ const handler = async (req, res) => {
     const refreshToken = process.env.MS_REFRESH_TOKEN;
     if (!refreshToken) throw new Error('MS_REFRESH_TOKEN not set');
 
-    const { formData, products, files } = req.body;
+    // Parse body if needed
+    let parsed = req.body;
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+    const { formData, products, files } = parsed;
     const token = await getAccessToken(refreshToken);
 
     await ensureFolder(token, '', BASE_FOLDER);
