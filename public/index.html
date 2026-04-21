@@ -357,14 +357,45 @@ async function handleSubmit() {
         const ext = file.name.split('.').pop().toLowerCase();
         const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
         const filePath = encodeURIComponent('UPC Submissions Automated') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
-        // Upload directly to OneDrive via Graph API
-        const b64 = await fileToBase64(file);
-        const uploadResp = await fetch('/api/upload_file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, folderName, fileName: fname, data: b64 })
-        });
-        if (!uploadResp.ok) throw new Error('File upload failed');
+        // Upload directly to OneDrive from browser (bypasses Vercel size limit)
+        const graphPath = 'UPC Submissions Automated/' + folderName + '/' + fname;
+        const encodedPath = graphPath.split('/').map(s => encodeURIComponent(s)).join('/');
+        if (file.size > 4 * 1024 * 1024) {
+          // Large file: chunked upload via session
+          const sessionResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + encodedPath + ':/createUploadSession', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace', name: fname } })
+          });
+          if (!sessionResp.ok) throw new Error('Could not create upload session: ' + await sessionResp.text());
+          const session = await sessionResp.json();
+          // Upload in 4MB chunks
+          const chunkSize = 4 * 1024 * 1024;
+          const buf = await file.arrayBuffer();
+          let start = 0;
+          while (start < file.size) {
+            const end = Math.min(start + chunkSize, file.size);
+            const chunk = buf.slice(start, end);
+            const chunkResp = await fetch(session.uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Length': (end - start).toString(),
+                'Content-Range': 'bytes ' + start + '-' + (end-1) + '/' + file.size
+              },
+              body: chunk
+            });
+            if (chunkResp.status >= 400) throw new Error('Chunk upload failed: ' + await chunkResp.text());
+            start = end;
+          }
+        } else {
+          // Small file: direct upload
+          const uploadResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + encodedPath + ':/content', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/octet-stream' },
+            body: file
+          });
+          if (!uploadResp.ok) throw new Error('Upload failed: ' + await uploadResp.text());
+        }
       }
     }
 
