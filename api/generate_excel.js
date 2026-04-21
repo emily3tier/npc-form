@@ -103,41 +103,9 @@ async function uploadFile(token, folderPath, fileName, data) {
   await graphRequest(token, 'PUT', `/me/drive/root:/${fullPath}:/content`, data, 'application/octet-stream');
 }
 
-async function uploadLargeFile(token, folderPath, fileName, data) {
-  const fullPath = `${folderPath}/${fileName}`.split('/').map(enc).join('/');
-  const sessionBody = JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } });
-  const sessionData = await httpsRequest({
-    hostname: 'graph.microsoft.com',
-    path: `/v1.0/me/drive/root:/${fullPath}:/createUploadSession`,
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(sessionBody) },
-  }, sessionBody);
-  const uploadUrl = JSON.parse(sessionData).uploadUrl;
-  const urlObj = new URL(uploadUrl);
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method: 'PUT',
-      headers: { 'Content-Length': data.length, 'Content-Range': `bytes 0-${data.length - 1}/${data.length}` },
-    }, (res) => {
-      let d = '';
-      res.on('data', chunk => d += chunk);
-      res.on('end', () => res.statusCode >= 400 ? reject(new Error(`Upload failed: ${d}`)) : resolve(d));
-    });
-    req.on('error', reject);
-    req.write(data);
-    req.end();
-  });
-}
-
-async function getTemplate(token) {
-  return graphDownload(token, `/me/drive/root:/${enc(TEMPLATE_NAME)}:/content`);
-}
-
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -145,39 +113,31 @@ module.exports = async (req, res) => {
     const refreshToken = process.env.MS_REFRESH_TOKEN;
     if (!refreshToken) throw new Error('MS_REFRESH_TOKEN not set');
 
-    let parsed;
-    if (req.body && typeof req.body === 'object' && req.body.formData) {
-      parsed = req.body;
-    } else {
-      const rawBody = await getRawBody(req);
-      parsed = JSON.parse(rawBody.toString('utf8'));
-    }
-    const { formData, products, files } = parsed;
+    const rawBody = await getRawBody(req);
+    const parsed = JSON.parse(rawBody.toString('utf8'));
+    const { action, formData, products } = parsed;
 
     const token = await getAccessToken(refreshToken);
-    await ensureFolder(token, '', BASE_FOLDER);
 
+    // Create folders
+    await ensureFolder(token, '', BASE_FOLDER);
     for (const p of products) {
       await ensureFolder(token, BASE_FOLDER, p.folderName);
     }
 
-    for (const f of files) {
-      const buf = Buffer.from(f.data, 'base64');
-      const folderPath = `${BASE_FOLDER}/${f.folderName}`;
-      if (buf.length > 4 * 1024 * 1024) {
-        await uploadLargeFile(token, folderPath, f.fileName, buf);
-      } else {
-        await uploadFile(token, folderPath, f.fileName, buf);
-      }
-    }
-
-    const templateBuf = await getTemplate(token);
+    // Get template and upload filled Excel
+    const templateBuf = await graphDownload(token, `/me/drive/root:/${enc(TEMPLATE_NAME)}:/content`);
     const clientSafe = (formData.clientName || 'client').replace(/[^a-z0-9]/gi, '_');
     const date = new Date().toISOString().slice(0, 10);
     const excelName = `NPC_Form_${clientSafe}_${date}.xlsx`;
     await uploadFile(token, BASE_FOLDER, excelName, templateBuf);
 
-    res.status(200).json({ excel: templateBuf.toString('base64'), excelName });
+    // Return token so browser can upload files directly + excel for download
+    res.status(200).json({
+      token,
+      excelData: templateBuf.toString('base64'),
+      excelName
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: e.message });
