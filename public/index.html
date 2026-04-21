@@ -109,7 +109,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   </div>
 
 </div>
-<script defer>
+<script>
 // ── UPC Logic ─────────────────────────────────
 function calcUPC(barcode) {
   const d = (barcode || '').replace(/\D/g, '');
@@ -204,7 +204,7 @@ function productHTML(p, i) {
         '</div>' +
         '<div class="field">' +
           '<label>Product Name <span class="req">*</span></label>' +
-          '<input type="text" id="p-name-' + p.id + '" value="' + p.name + '" placeholder="e.g. Brewt's Cucumber Margarita 750ml Single">' +
+          '<input type="text" id="p-name-' + p.id + '" value="' + p.name + '" placeholder="e.g. Brewts Cucumber Margarita 750ml Single">' +
           '<div class="hint">Include brand, flavor, volume (e.g. 750ml, 12oz), and pack size if applicable (e.g. 4-pack, 6-pack). This is how your product will appear in NIQ.</div>' +
         '</div>' +
       '</div>' +
@@ -386,16 +386,13 @@ async function handleSubmit() {
 }
 
 // ── Init ──────────────────────────────────────
-function initForm() {
-  document.querySelectorAll('input[name=coding]').forEach(r => {
-    r.addEventListener('change', () => {
-      document.getElementById('sat-wrap').style.display =
-        r.value === 'Code by Saturday Date' ? 'block' : 'none';
-    });
+document.querySelectorAll('input[name=coding]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('sat-wrap').style.display =
+      r.value === 'Code by Saturday Date' ? 'block' : 'none';
   });
-  addProduct();
-}
-window.onload = initForm;
+});
+addProduct();
 </script>
 </body>
 </html>
