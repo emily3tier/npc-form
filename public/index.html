@@ -357,26 +357,14 @@ async function handleSubmit() {
         const ext = file.name.split('.').pop().toLowerCase();
         const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
         const filePath = encodeURIComponent('UPC Submissions Automated') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
-        if (file.size > 4 * 1024 * 1024) {
-          // Large file: use upload session
-          const sessionResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + filePath + ':/createUploadSession', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } })
-          });
-          const session = await sessionResp.json();
-          await fetch(session.uploadUrl, {
-            method: 'PUT',
-            headers: { 'Content-Length': file.size, 'Content-Range': 'bytes 0-' + (file.size-1) + '/' + file.size },
-            body: file
-          });
-        } else {
-          await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + filePath + ':/content', {
-            method: 'PUT',
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/octet-stream' },
-            body: file
-          });
-        }
+        // Upload directly to OneDrive via Graph API
+        const b64 = await fileToBase64(file);
+        const uploadResp = await fetch('/api/upload_file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, folderName, fileName: fname, data: b64 })
+        });
+        if (!uploadResp.ok) throw new Error('File upload failed');
       }
     }
 
