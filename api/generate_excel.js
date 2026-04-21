@@ -1,3 +1,10 @@
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
 const https = require('https');
 const querystring = require('querystring');
 
