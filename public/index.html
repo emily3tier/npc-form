@@ -386,13 +386,15 @@ async function handleSubmit() {
 }
 
 // ── Init ──────────────────────────────────────
-document.querySelectorAll('input[name=coding]').forEach(r => {
-  r.addEventListener('change', () => {
-    document.getElementById('sat-wrap').style.display =
-      r.value === 'Code by Saturday Date' ? 'block' : 'none';
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('input[name=coding]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('sat-wrap').style.display =
+        r.value === 'Code by Saturday Date' ? 'block' : 'none';
+    });
   });
+  addProduct();
 });
-addProduct();
 </script>
 </body>
 </html>
