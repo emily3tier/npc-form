@@ -386,7 +386,7 @@ async function handleSubmit() {
 }
 
 // ── Init ──────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
+function initForm() {
   document.querySelectorAll('input[name=coding]').forEach(r => {
     r.addEventListener('change', () => {
       document.getElementById('sat-wrap').style.display =
@@ -394,7 +394,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
   addProduct();
-});
+}
+window.onload = initForm;
 </script>
 </body>
 </html>
