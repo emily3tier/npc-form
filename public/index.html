@@ -324,47 +324,65 @@ async function handleSubmit() {
   try {
     setStatus('Preparing submission...', 'status-loading');
 
-    // Convert all files to base64
-    const filesPayload = [];
+    // Step 1: Get access token from API (no files sent yet)
+    setStatus('Connecting to OneDrive...', 'status-loading');
+    const tokenResp = await fetch('/api/generate_excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'getToken',
+        formData: { fromName, email, clientName, ownProduct, codingOption: codingOpt, saturdayDate: satDate, containerType: contType, containerMaterial: contMat, additionalInfo: addlInfo },
+        products: products.map(p => ({
+          upc: calcUPC(p.barcode),
+          name: p.name,
+          asin: p.asin || '',
+          costco: p.costco || '',
+          folderName: calcFolder(p.barcode, p.name)
+        }))
+      })
+    });
+    if (!tokenResp.ok) {
+      const err = await tokenResp.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(err.error || tokenResp.statusText);
+    }
+    const { token, excelData, excelName } = await tokenResp.json();
+
+    // Step 2: Upload files directly to OneDrive from browser
     for (const p of products) {
       const upc = calcUPC(p.barcode);
       const folderName = calcFolder(p.barcode, p.name);
       for (let j = 0; j < p.files.length; j++) {
         const file = p.files[j];
-        setStatus('Preparing image ' + (j+1) + ' of ' + p.files.length + ' for ' + (p.name || 'product') + '...', 'status-loading');
+        setStatus('Uploading image ' + (j+1) + ' of ' + p.files.length + ' for ' + (p.name || 'product') + '...', 'status-loading');
         const ext = file.name.split('.').pop().toLowerCase();
         const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
-        const b64 = await fileToBase64(file);
-        filesPayload.push({ folderName, fileName: fname, data: b64 });
+        const filePath = encodeURIComponent('UPC Submissions Automated') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
+        if (file.size > 4 * 1024 * 1024) {
+          // Large file: use upload session
+          const sessionResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + filePath + ':/createUploadSession', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } })
+          });
+          const session = await sessionResp.json();
+          await fetch(session.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Length': file.size, 'Content-Range': 'bytes 0-' + (file.size-1) + '/' + file.size },
+            body: file
+          });
+        } else {
+          await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + filePath + ':/content', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/octet-stream' },
+            body: file
+          });
+        }
       }
     }
 
-    setStatus('Uploading to 3 Tier Beverages...', 'status-loading');
-
-    const payload = {
-      formData: { fromName, email, clientName, ownProduct, codingOption: codingOpt, saturdayDate: satDate, containerType: contType, containerMaterial: contMat, additionalInfo: addlInfo },
-      products: products.map(p => ({
-        upc: calcUPC(p.barcode),
-        name: p.name,
-        asin: p.asin || '',
-        costco: p.costco || '',
-        folderName: calcFolder(p.barcode, p.name)
-      })),
-      files: filesPayload
-    };
-
-    const resp = await fetch('/api/generate_excel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(err.error || resp.statusText);
-    }
-
-    const result = await resp.json();
+    setStatus('Finalizing...', 'status-loading');
+    const resp = { ok: true };
+    const result = { excel: excelData, excelName };
 
     // Download Excel to client
     const bin = atob(result.excel);
