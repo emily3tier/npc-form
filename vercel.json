@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/generate_excel.js": {
+      "maxDuration": 60
+    }
+  },
+  "outputDirectory": "public"
+}
