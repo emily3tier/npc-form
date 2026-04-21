@@ -6,6 +6,15 @@ const TENANT_ID = '667afa82-1126-4a78-8f76-0918c7f2a845';
 const BASE_FOLDER = 'UPC Submissions Automated';
 const TEMPLATE_NAME = 'NPC Form 2026 1.xlsx';
 
+function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -105,16 +114,12 @@ async function uploadLargeFile(token, folderPath, fileName, data) {
   }, sessionBody);
   const uploadUrl = JSON.parse(sessionData).uploadUrl;
   const urlObj = new URL(uploadUrl);
-
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: urlObj.hostname,
       path: urlObj.pathname + urlObj.search,
       method: 'PUT',
-      headers: {
-        'Content-Length': data.length,
-        'Content-Range': `bytes 0-${data.length - 1}/${data.length}`,
-      },
+      headers: { 'Content-Length': data.length, 'Content-Range': `bytes 0-${data.length - 1}/${data.length}` },
     }, (res) => {
       let d = '';
       res.on('data', chunk => d += chunk);
@@ -130,7 +135,7 @@ async function getTemplate(token) {
   return graphDownload(token, `/me/drive/root:/${enc(TEMPLATE_NAME)}:/content`);
 }
 
-const handler = async (req, res) => {
+module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -140,13 +145,12 @@ const handler = async (req, res) => {
     const refreshToken = process.env.MS_REFRESH_TOKEN;
     if (!refreshToken) throw new Error('MS_REFRESH_TOKEN not set');
 
-    // Parse body if needed
-    let parsed = req.body;
-    if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-    const { formData, products, files } = parsed;
-    const token = await getAccessToken(refreshToken);
+    const rawBody = await getRawBody(req);
+    const { formData, products, files } = JSON.parse(rawBody.toString());
 
+    const token = await getAccessToken(refreshToken);
     await ensureFolder(token, '', BASE_FOLDER);
+
     for (const p of products) {
       await ensureFolder(token, BASE_FOLDER, p.folderName);
     }
@@ -173,13 +177,3 @@ const handler = async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
-
-handler.config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};
-
-module.exports = handler;
