@@ -1,6 +1,0 @@
-[build]
-  publish = "."
-  functions = "."
-
-[functions]
-  included_files = ["*.py"]
