@@ -15,6 +15,30 @@ function getRawBody(req) {
   });
 }
 
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const req = https.request({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: { 'User-Agent': 'node' },
+    }, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        return httpsGet(res.headers.location).then(resolve).catch(reject);
+      }
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => {
+        if (res.statusCode >= 400) reject(new Error('HTTP ' + res.statusCode));
+        else resolve(Buffer.concat(chunks));
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -69,14 +93,33 @@ async function graphRequest(token, method, path, body, contentType) {
   }
 }
 
-async function graphDownload(token, path) {
+async function graphDownloadWithRedirect(token, path) {
+  // First get the download URL from Graph API
+  const data = await httpsRequest({
+    hostname: 'graph.microsoft.com',
+    path: '/v1.0' + path,
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer ' + token },
+  }, null);
+  // This will fail with 302 - we need the Location header
+  return data;
+}
+
+async function getTemplateBytes(token) {
+  // Get download URL via Graph metadata
+  const enc = encodeURIComponent;
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'graph.microsoft.com',
-      path: '/v1.0' + path,
+      path: '/v1.0/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content',
       method: 'GET',
       headers: { 'Authorization': 'Bearer ' + token },
     }, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        // Follow redirect
+        httpsGet(res.headers.location).then(resolve).catch(reject);
+        return;
+      }
       const chunks = [];
       res.on('data', chunk => chunks.push(chunk));
       res.on('end', () => {
@@ -148,7 +191,7 @@ module.exports = async (req, res) => {
     for (const p of products) {
       await ensureFolder(token, BASE_FOLDER, p.folderName);
     }
-    const templateBuf = await graphDownload(token, '/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content');
+    const templateBuf = await getTemplateBytes(token);
     const excelBuf = await populateExcel(templateBuf, formData, products);
     const clientSafe = (formData.clientName || 'client').replace(/[^a-z0-9]/gi, '_');
     const date = new Date().toISOString().slice(0, 10);
