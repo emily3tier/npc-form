@@ -15,30 +15,6 @@ function getRawBody(req) {
   });
 }
 
-function httpsGet(url) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const req = https.request({
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method: 'GET',
-      headers: { 'User-Agent': 'node' },
-    }, (res) => {
-      if (res.statusCode === 302 || res.statusCode === 301) {
-        return httpsGet(res.headers.location).then(resolve).catch(reject);
-      }
-      const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
-      res.on('end', () => {
-        if (res.statusCode >= 400) reject(new Error('HTTP ' + res.statusCode));
-        else resolve(Buffer.concat(chunks));
-      });
-    });
-    req.on('error', reject);
-    req.end();
-  });
-}
-
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -93,33 +69,14 @@ async function graphRequest(token, method, path, body, contentType) {
   }
 }
 
-async function graphDownloadWithRedirect(token, path) {
-  // First get the download URL from Graph API
-  const data = await httpsRequest({
-    hostname: 'graph.microsoft.com',
-    path: '/v1.0' + path,
-    method: 'GET',
-    headers: { 'Authorization': 'Bearer ' + token },
-  }, null);
-  // This will fail with 302 - we need the Location header
-  return data;
-}
-
-async function getTemplateBytes(token) {
-  // Get download URL via Graph metadata
-  const enc = encodeURIComponent;
+async function graphDownload(token, path) {
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'graph.microsoft.com',
-      path: '/v1.0/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content',
+      path: '/v1.0' + path,
       method: 'GET',
       headers: { 'Authorization': 'Bearer ' + token },
     }, (res) => {
-      if (res.statusCode === 302 || res.statusCode === 301) {
-        // Follow redirect
-        httpsGet(res.headers.location).then(resolve).catch(reject);
-        return;
-      }
       const chunks = [];
       res.on('data', chunk => chunks.push(chunk));
       res.on('end', () => {
@@ -151,6 +108,16 @@ async function populateExcel(templateBuf, formData, products) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(templateBuf);
   const sheet = workbook.getWorksheet('New Product Coding Form') || workbook.worksheets[0];
+  
+  // Log all cells with values to find correct positions
+  const cellMap = {};
+  sheet.eachRow((row, rowNum) => {
+    row.eachCell((cell, colNum) => {
+      if (cell.value) cellMap[cell.address] = String(cell.value).substring(0, 50);
+    });
+  });
+  console.log('Cell map:', JSON.stringify(cellMap));
+
   sheet.getCell('B4').value = formData.fromName || '';
   sheet.getCell('D4').value = formData.clientName || '';
   sheet.getCell('B5').value = formData.email || '';
@@ -162,8 +129,10 @@ async function populateExcel(templateBuf, formData, products) {
   if (coding === 'Code by Saturday Date' && formData.saturdayDate) {
     sheet.getCell('C9').value = formData.saturdayDate;
   }
-  sheet.getCell('E10').value = formData.containerType || '';
-  sheet.getCell('F10').value = formData.containerMaterial || '';
+  // Try both possible cell locations for container type/material
+  sheet.getCell('D10').value = formData.containerType || '';
+  sheet.getCell('E10').value = formData.containerMaterial || '';
+  
   const addl = formData.additionalInfo || '';
   products.forEach((p, i) => {
     const row = 12 + i;
@@ -191,7 +160,7 @@ module.exports = async (req, res) => {
     for (const p of products) {
       await ensureFolder(token, BASE_FOLDER, p.folderName);
     }
-    const templateBuf = await getTemplateBytes(token);
+    const templateBuf = await graphDownload(token, '/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content');
     const excelBuf = await populateExcel(templateBuf, formData, products);
     const clientSafe = (formData.clientName || 'client').replace(/[^a-z0-9]/gi, '_');
     const date = new Date().toISOString().slice(0, 10);
