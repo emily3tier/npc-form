@@ -406,7 +406,7 @@ async function handleSubmit() {
           if (!sessionResp.ok) throw new Error('Could not create upload session: ' + await sessionResp.text());
           const session = await sessionResp.json();
           // Upload in 3MB chunks via API proxy (avoids CORS on SharePoint URL)
-          const chunkSize = 3 * 1024 * 1024;
+          const chunkSize = 1.5 * 1024 * 1024;
           const buf = await file.arrayBuffer();
           let start = 0;
           while (start < file.size) {
