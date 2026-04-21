@@ -1,11 +1,3 @@
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};
-
 const https = require('https');
 const querystring = require('querystring');
 
@@ -138,7 +130,7 @@ async function getTemplate(token) {
   return graphDownload(token, `/me/drive/root:/${enc(TEMPLATE_NAME)}:/content`);
 }
 
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -178,3 +170,13 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
+
+handler.config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
+
+module.exports = handler;
