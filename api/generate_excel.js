@@ -91,7 +91,6 @@ async function graphRequest(token, method, path, body, contentType) {
 }
 
 async function graphDownload(token, path) {
-  // First get the download URL from graph API
   const metaData = await httpsRequest({
     hostname: 'graph.microsoft.com',
     path: '/v1.0' + path.replace(':/content', ''),
@@ -123,10 +122,12 @@ async function populateExcel(templateBuf, formData, products) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(templateBuf);
   const sheet = workbook.getWorksheet('New Product Coding Form') || workbook.worksheets[0];
+
   sheet.getCell('B4').value = formData.fromName || '';
   sheet.getCell('D4').value = formData.clientName || '';
   sheet.getCell('B5').value = formData.email || '';
   sheet.getCell('D5').value = formData.ownProduct || 'Yes';
+
   const coding = formData.codingOption || 'Code Immediately';
   sheet.getCell('A7').value = coding === 'Code Immediately' ? 'X' : '';
   sheet.getCell('A8').value = coding === 'Delay until Sales' ? 'X' : '';
@@ -134,8 +135,10 @@ async function populateExcel(templateBuf, formData, products) {
   if (coding === 'Code by Saturday Date' && formData.saturdayDate) {
     sheet.getCell('C9').value = formData.saturdayDate;
   }
-  sheet.getCell('D10').value = formData.containerType || '';
-  sheet.getCell('F10').value = formData.containerMaterial || '';
+
+  sheet.getCell('C10').value = 'Please provide Container Type:  ' + (formData.containerType || '');
+  sheet.getCell('D10').value = 'Please provide Container Material Substance:' + (formData.containerMaterial || '');
+
   const addl = formData.additionalInfo || '';
   products.forEach((p, i) => {
     const row = 12 + i;
@@ -144,6 +147,7 @@ async function populateExcel(templateBuf, formData, products) {
     sheet.getCell('C' + row).value = p.costco || '';
     sheet.getCell('D' + row).value = p.name + (addl ? ' | ' + addl : '');
   });
+
   const out = await workbook.xlsx.writeBuffer();
   return Buffer.from(out);
 }
