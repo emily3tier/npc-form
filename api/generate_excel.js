@@ -135,7 +135,7 @@ async function populateExcel(templateBuf, formData, products) {
     sheet.getCell('C9').value = formData.saturdayDate;
   }
   sheet.getCell('D10').value = formData.containerType || '';
-  sheet.getCell('E10').value = formData.containerMaterial || '';
+  sheet.getCell('F10').value = formData.containerMaterial || '';
   const addl = formData.additionalInfo || '';
   products.forEach((p, i) => {
     const row = 12 + i;
