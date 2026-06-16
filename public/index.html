@@ -395,7 +395,7 @@ async function handleSubmit() {
         const filePath = encodeURIComponent('UPC Submissions Automated') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
         // Compress image if needed then upload directly to OneDrive
         const fileToUpload = await compressIfNeeded(file);
-        const graphPath = (submissionFolder ? submissionFolder + '/' + folderName : 'UPC Submissions Automated/' + folderName) + '/' + fname;
+        const graphPath = (submissionFolder ? submissionFolder : 'UPC Submissions Automated/' + folderName) + '/' + fname;
         const encodedPath = graphPath.split('/').map(s => encodeURIComponent(s)).join('/');
         if (file.size > 4 * 1024 * 1024) {
           // Large file: chunked upload via session
