@@ -5,6 +5,7 @@ const CLIENT_ID = 'd6dd88e1-a49e-4350-8339-f0f42c4b3b2e';
 const TENANT_ID = '667afa82-1126-4a78-8f76-0918c7f2a845';
 const BASE_FOLDER = 'UPC Submissions Automated';
 const TEMPLATE_NAME = 'NPC Form 2026 1.xlsx';
+const MASTER_LOG = 'Submission Log.xlsx';
 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -19,10 +20,7 @@ function httpsGet(url) {
   return new Promise((resolve, reject) => {
     const follow = (u) => {
       https.get(u, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          follow(res.headers.location);
-          return;
-        }
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) { follow(res.headers.location); return; }
         const chunks = [];
         res.on('data', chunk => chunks.push(chunk));
         res.on('end', () => {
@@ -53,62 +51,42 @@ function httpsRequest(options, body) {
 }
 
 async function getAccessToken(refreshToken) {
-  const body = querystring.stringify({
-    client_id: CLIENT_ID,
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken,
-    scope: 'Files.ReadWrite offline_access User.Read',
-  });
-  const data = await httpsRequest({
-    hostname: 'login.microsoftonline.com',
-    path: '/' + TENANT_ID + '/oauth2/v2.0/token',
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
-  }, body);
+  const body = querystring.stringify({ client_id: CLIENT_ID, grant_type: 'refresh_token', refresh_token: refreshToken, scope: 'Files.ReadWrite offline_access User.Read' });
+  const data = await httpsRequest({ hostname: 'login.microsoftonline.com', path: '/' + TENANT_ID + '/oauth2/v2.0/token', method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) } }, body);
   return JSON.parse(data).access_token;
 }
 
 async function graphRequest(token, method, path, body, contentType) {
   const isBuffer = Buffer.isBuffer(body);
   const bodyStr = body && !isBuffer ? JSON.stringify(body) : body;
-  const options = {
-    hostname: 'graph.microsoft.com',
-    path: '/v1.0' + path,
-    method,
-    headers: { 'Authorization': 'Bearer ' + token },
-  };
-  if (body) {
-    options.headers['Content-Type'] = contentType || 'application/json';
-    options.headers['Content-Length'] = isBuffer ? body.length : Buffer.byteLength(bodyStr);
-  }
-  try {
-    const data = await httpsRequest(options, bodyStr || body);
-    return data ? JSON.parse(data) : {};
-  } catch (e) {
-    if (e.message.includes('HTTP 409')) return {};
-    throw e;
-  }
+  const options = { hostname: 'graph.microsoft.com', path: '/v1.0' + path, method, headers: { 'Authorization': 'Bearer ' + token } };
+  if (body) { options.headers['Content-Type'] = contentType || 'application/json'; options.headers['Content-Length'] = isBuffer ? body.length : Buffer.byteLength(bodyStr); }
+  try { const data = await httpsRequest(options, bodyStr || body); return data ? JSON.parse(data) : {}; }
+  catch (e) { if (e.message.includes('HTTP 409')) return {}; throw e; }
 }
 
 async function graphDownload(token, path) {
-  const metaData = await httpsRequest({
-    hostname: 'graph.microsoft.com',
-    path: '/v1.0' + path.replace(':/content', ''),
-    method: 'GET',
-    headers: { 'Authorization': 'Bearer ' + token },
-  });
+  const metaData = await httpsRequest({ hostname: 'graph.microsoft.com', path: '/v1.0' + path.replace(':/content', ''), method: 'GET', headers: { 'Authorization': 'Bearer ' + token } });
   const item = JSON.parse(metaData);
   const downloadUrl = item['@microsoft.graph.downloadUrl'];
   if (!downloadUrl) throw new Error('No download URL found for template');
   return httpsGet(downloadUrl);
 }
 
+async function tryGraphDownload(token, filePath) {
+  try {
+    const metaData = await httpsRequest({ hostname: 'graph.microsoft.com', path: '/v1.0/me/drive/root:/' + filePath.split('/').map(encodeURIComponent).join('/'), method: 'GET', headers: { 'Authorization': 'Bearer ' + token } });
+    const item = JSON.parse(metaData);
+    const downloadUrl = item['@microsoft.graph.downloadUrl'];
+    if (!downloadUrl) return null;
+    return await httpsGet(downloadUrl);
+  } catch (e) { return null; }
+}
+
 function enc(s) { return encodeURIComponent(s); }
 
 async function ensureFolder(token, parentPath, folderName) {
-  const url = parentPath
-    ? '/me/drive/root:/' + parentPath.split('/').map(enc).join('/') + ':/children'
-    : '/me/drive/root/children';
+  const url = parentPath ? '/me/drive/root:/' + parentPath.split('/').map(enc).join('/') + ':/children' : '/me/drive/root/children';
   await graphRequest(token, 'POST', url, { name: folderName, folder: {} });
 }
 
@@ -122,23 +100,17 @@ async function populateExcel(templateBuf, formData, products) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(templateBuf);
   const sheet = workbook.getWorksheet('New Product Coding Form') || workbook.worksheets[0];
-
   sheet.getCell('B4').value = formData.fromName || '';
   sheet.getCell('D4').value = formData.clientName || '';
   sheet.getCell('B5').value = formData.email || '';
   sheet.getCell('D5').value = formData.ownProduct || 'Yes';
-
   const coding = formData.codingOption || 'Code Immediately';
   sheet.getCell('A7').value = coding === 'Code Immediately' ? 'X' : '';
   sheet.getCell('A8').value = coding === 'Delay until Sales' ? 'X' : '';
   sheet.getCell('A9').value = coding === 'Code by Saturday Date' ? 'X' : '';
-  if (coding === 'Code by Saturday Date' && formData.saturdayDate) {
-    sheet.getCell('C9').value = formData.saturdayDate;
-  }
-
+  if (coding === 'Code by Saturday Date' && formData.saturdayDate) sheet.getCell('C9').value = formData.saturdayDate;
   sheet.getCell('C10').value = 'Please provide Container Type:  ' + (formData.containerType || '');
   sheet.getCell('D10').value = 'Please provide Container Material Substance:' + (formData.containerMaterial || '');
-
   const addl = formData.additionalInfo || '';
   products.forEach((p, i) => {
     const row = 12 + i;
@@ -147,9 +119,29 @@ async function populateExcel(templateBuf, formData, products) {
     sheet.getCell('C' + row).value = p.costco || '';
     sheet.getCell('D' + row).value = p.name + (addl ? ' | ' + addl : '');
   });
-
   const out = await workbook.xlsx.writeBuffer();
   return Buffer.from(out);
+}
+
+async function updateMasterLog(token, formData, products, date) {
+  const ExcelJS = require('exceljs');
+  const existingBuf = await tryGraphDownload(token, BASE_FOLDER + '/' + MASTER_LOG);
+  const workbook = new ExcelJS.Workbook();
+  if (existingBuf) {
+    await workbook.xlsx.load(existingBuf);
+  } else {
+    const sheet = workbook.addWorksheet('Submissions');
+    const headerRow = sheet.getRow(1);
+    headerRow.values = ['Date', 'Client Name', 'Submitted By', 'Email', '# Products', 'Coding Option', 'Submitted to NIQ', 'Notes'];
+    headerRow.font = { bold: true };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A6B' } };
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.columns = [{ width: 12 }, { width: 25 }, { width: 22 }, { width: 30 }, { width: 12 }, { width: 22 }, { width: 18 }, { width: 20 }];
+  }
+  const sheet = workbook.getWorksheet('Submissions') || workbook.worksheets[0];
+  sheet.addRow([date, formData.clientName || '', formData.fromName || '', formData.email || '', products.length, formData.codingOption || 'Code Immediately', '', '']);
+  const out = await workbook.xlsx.writeBuffer();
+  await uploadFile(token, BASE_FOLDER, MASTER_LOG, Buffer.from(out));
 }
 
 module.exports = async (req, res) => {
@@ -163,17 +155,19 @@ module.exports = async (req, res) => {
     const rawBody = await getRawBody(req);
     const { formData, products } = JSON.parse(rawBody.toString('utf8'));
     const token = await getAccessToken(refreshToken);
+    const date = new Date().toISOString().slice(0, 10);
+    const clientSafe = (formData.clientName || 'Unknown').replace(/[^a-z0-9 ]/gi, '').trim();
+    const submissionFolder = BASE_FOLDER + '/' + clientSafe + '/' + date;
     await ensureFolder(token, '', BASE_FOLDER);
-    for (const p of products) {
-      await ensureFolder(token, BASE_FOLDER, p.folderName);
-    }
+    await ensureFolder(token, BASE_FOLDER, clientSafe);
+    await ensureFolder(token, BASE_FOLDER + '/' + clientSafe, date);
+    for (const p of products) await ensureFolder(token, submissionFolder, p.folderName);
     const templateBuf = await graphDownload(token, '/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content');
     const excelBuf = await populateExcel(templateBuf, formData, products);
-    const clientSafe = (formData.clientName || 'client').replace(/[^a-z0-9]/gi, '_');
-    const date = new Date().toISOString().slice(0, 10);
-    const excelName = 'NPC_Form_' + clientSafe + '_' + date + '.xlsx';
-    await uploadFile(token, BASE_FOLDER, excelName, excelBuf);
-    res.status(200).json({ token, excelData: excelBuf.toString('base64'), excelName });
+    const excelName = 'NPC_Form_' + clientSafe.replace(/ /g, '_') + '_' + date + '.xlsx';
+    await uploadFile(token, submissionFolder, excelName, excelBuf);
+    await updateMasterLog(token, formData, products, date);
+    res.status(200).json({ token, excelData: excelBuf.toString('base64'), excelName, submissionFolder });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: e.message });
