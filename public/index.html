@@ -338,6 +338,7 @@ function validate() {
 
 // ── Submit ────────────────────────────────────
 async function handleSubmit() {
+  let submissionFolder = '';
   if (!validate()) return;
 
   const fromName   = document.getElementById('f-from').value.trim();
