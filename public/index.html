@@ -70,7 +70,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       <div class="field"><label>Your Email <span class="req">*</span></label><input type="text" id="f-email" placeholder="your@email.com"></div>
     </div>
     <div class="grid-2">
-      <div class="field"><label>Client / Company Name <span class="req">*</span></label><input type="text" id="f-client" placeholder="e.g. 3 Tier Beverages"></div>
+      <div class="field"><label>Client / Company Name <span class="req">*</span></label><input type="text" id="f-client" placeholder="e.g. Brewt's Beverages"></div>
       <div class="field"><label>Is this the client's own product?</label><select id="f-own"><option>Yes</option><option>No</option></select></div>
     </div>
   </div>
@@ -239,7 +239,7 @@ function productHTML(p, i) {
         '</div>' +
         '<div class="field">' +
           '<label>Product Name <span class="req">*</span></label>' +
-          '<input type="text" id="p-name-' + p.id + '" value="' + p.name + '" placeholder="e.g. 3 Tier Lager 12oz Single">' +
+          '<input type="text" id="p-name-' + p.id + '" value="' + p.name + '" placeholder="e.g. Brewts Cucumber Margarita 750ml Single">' +
           '<div class="hint">Include brand, flavor, volume (e.g. 750ml, 12oz), and pack size if applicable (e.g. 4-pack, 6-pack). This is how your product will appear in NIQ.</div>' +
         '</div>' +
       '</div>' +
@@ -380,7 +380,7 @@ async function handleSubmit() {
       const err = await tokenResp.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(err.error || tokenResp.statusText);
     }
-    const { token, excelData, excelName, submissionFolder } = await tokenResp.json();
+    const { token, excelData, excelName } = await tokenResp.json();
 
     // Step 2: Upload files directly to OneDrive from browser
     for (const p of products) {
@@ -394,7 +394,7 @@ async function handleSubmit() {
         const filePath = encodeURIComponent('UPC Submissions Automated') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
         // Compress image if needed then upload directly to OneDrive
         const fileToUpload = await compressIfNeeded(file);
-        const graphPath = (submissionFolder || ('UPC Submissions Automated/' + folderName)) + '/' + fname;
+        const graphPath = 'UPC Submissions Automated/' + folderName + '/' + fname;
         const encodedPath = graphPath.split('/').map(s => encodeURIComponent(s)).join('/');
         if (file.size > 4 * 1024 * 1024) {
           // Large file: chunked upload via session
