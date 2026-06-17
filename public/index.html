@@ -382,7 +382,8 @@ async function handleSubmit() {
       const err = await tokenResp.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(err.error || tokenResp.statusText);
     }
-    const { token, excelData, excelName } = await tokenResp.json();
+    const { token, excelData, excelName, submissionFolder: _sf } = await tokenResp.json();
+    submissionFolder = _sf || '';
 
     // Step 2: Upload files directly to OneDrive from browser
     for (const p of products) {
