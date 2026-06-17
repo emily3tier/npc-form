@@ -1,0 +1,66 @@
+name: Token Renewal Reminder
+
+on:
+  schedule:
+    # Runs every day at 9am UTC to check if reminder is needed
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-token-age:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check token age and send reminder
+        run: |
+          # Find the last commit that updated MS_REFRESH_TOKEN in Vercel
+          # We track this by looking at the last time token-updated.txt was changed
+          if [ -f .github/token-updated.txt ]; then
+            LAST_UPDATE=$(cat .github/token-updated.txt)
+            DAYS_AGO=$(( ( $(date +%s) - $(date -d "$LAST_UPDATE" +%s) ) / 86400 ))
+            echo "Token last updated: $LAST_UPDATE ($DAYS_AGO days ago)"
+            if [ $DAYS_AGO -ge 80 ]; then
+              echo "REMINDER_NEEDED=true" >> $GITHUB_ENV
+              echo "DAYS_AGO=$DAYS_AGO" >> $GITHUB_ENV
+            else
+              echo "Token is $DAYS_AGO days old, no reminder needed yet"
+            fi
+          else
+            echo "No token-updated.txt found, creating with today's date"
+            echo "REMINDER_NEEDED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Send email reminder
+        if: env.REMINDER_NEEDED == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.REMINDER_EMAIL_USER }}
+          password: ${{ secrets.REMINDER_EMAIL_PASS }}
+          subject: "⚠️ NPC Form: Microsoft token expires soon — renew in ${{ env.DAYS_AGO }} days"
+          to: emily@3tierbeverages.com
+          from: NPC Form Reminder
+          body: |
+            Hi Emily,
+
+            Your Microsoft refresh token for the NPC UPC Coding Form is ${{ env.DAYS_AGO }} days old and will expire in ${{ env.DAYS_LEFT }} days (tokens last 90 days).
+
+            To renew it:
+            1. Open Command Prompt
+            2. Run: cd Downloads && python get_token.py
+            3. Sign in when prompted
+            4. Copy the new token
+            5. Go to vercel.com → npc-form → Project configuration → Environment variables
+            6. Update MS_REFRESH_TOKEN with the new token
+            7. Trigger a redeploy
+            8. Update the token date file: go to github.com/emily3tier/npc-form and edit .github/token-updated.txt with today's date (YYYY-MM-DD)
+
+            The form will stop working if the token expires!
+
+            — NPC Form Auto-Reminder
