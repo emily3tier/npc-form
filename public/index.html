@@ -252,14 +252,14 @@ function productHTML(p, i) {
         '<label>Product Images <span class="req">*</span></label>' +
         '<div class="img-instructions">' +
           '<strong>What to upload:</strong> Front and back label as separate photos, or one flat/box image showing all sides.<br>' +
-          '<strong>Format &amp; size:</strong> JPG or PDF only &nbsp;&middot;&nbsp; Minimum 1MB per file &nbsp;&middot;&nbsp; All text must be clearly legible<br>' +
+          '<strong>Format &amp; size:</strong> JPG or PDF only &nbsp;&middot;&nbsp; Minimum 500KB per file &nbsp;&middot;&nbsp; All text must be clearly legible<br>' +
           '<strong>Front label must show:</strong> Brand name, product name, size, and proof/ABV<br>' +
           '<strong>Back label must show:</strong> UPC barcode, government warning, and nutritional facts' +
         '</div>' +
         '<div class="dropzone' + (p.files.length > 0 ? ' ok' : p.fileErr ? ' err-state' : '') + '" id="dz-' + p.id + '">' +
           (p.files.length > 0
             ? '<div style="width:100%;padding:0 4px">' + fileListHTML + '<div style="font-size:11px;color:#888;margin-top:6px;">Click or drag to add more files</div></div>'
-            : '<span class="dz-icon">+</span><span class="dz-hint">Click or drag &amp; drop &middot; JPG or PDF &middot; min 1MB<br>You can upload multiple files at once</span>') +
+            : '<span class="dz-icon">+</span><span class="dz-hint">Click or drag &amp; drop &middot; JPG or PDF &middot; min 500KB<br>You can upload multiple files at once</span>') +
         '</div>' +
         '<input type="file" id="fi-' + p.id + '" accept=".jpg,.jpeg,.pdf" multiple style="display:none">' +
         '<div class="field-err" id="fe-' + p.id + '">' + (p.fileErr || '') + '</div>' +
@@ -314,7 +314,7 @@ function refreshDZ(id) {
     ).join('');
     zone.innerHTML = '<div style="width:100%;padding:0 4px">' + fl + '<div style="font-size:11px;color:#888;margin-top:6px;">Click or drag to add more files</div></div>';
   } else {
-    zone.innerHTML = '<span class="dz-icon">+</span><span class="dz-hint">Click or drag &amp; drop &middot; JPG or PDF &middot; min 1MB<br>You can upload multiple files at once</span>';
+    zone.innerHTML = '<span class="dz-icon">+</span><span class="dz-hint">Click or drag &amp; drop &middot; JPG or PDF &middot; min 500KB<br>You can upload multiple files at once</span>';
   }
   if (errEl) errEl.textContent = p.fileErr || '';
   zone.onclick = () => document.getElementById('fi-' + id).click();
