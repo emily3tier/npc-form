@@ -6,8 +6,8 @@ const TENANT_ID = '667afa82-1126-4a78-8f76-0918c7f2a845';
 const BASE_FOLDER = 'UPC Submissions Automated';
 const TEMPLATE_NAME = 'NPC Form 2026 1.xlsx';
 const MASTER_LOG = 'Submission Log.xlsx';
-const MONDAY_BOARD_ID = '6568854930';
-const MONDAY_GROUP_ID = 'topics';
+const MONDAY_BOARD_ID = '18419075542';
+const MONDAY_GROUP_ID = 'group_mm4kqrh';
 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -117,8 +117,18 @@ async function sendEmail(token, to, cc, subject, body) {
   await graphRequest(token, 'POST', '/me/sendMail', message);
 }
 
-async function createMondayItem(mondayToken, itemName, columnValues) {
-  const query = `mutation { create_item(board_id: ${MONDAY_BOARD_ID}, group_id: "${MONDAY_GROUP_ID}", item_name: "${itemName.replace(/"/g, '')}", column_values: "${JSON.stringify(columnValues).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}") { id } }`;
+async function createMondayItem(mondayToken, clientName, submittedBy, email, numProducts, codingOption, date, folderLink) {
+  const colVals = JSON.stringify({
+    text_mm4k71we: clientName,
+    text_mm4ktt2k: submittedBy,
+    email_mm4kwrkw: { email: email, text: email },
+    numeric_mm4k42ma: String(numProducts),
+    text_mm4kq9qw: codingOption,
+    date_mm4kqf41: { date: date },
+    link_mm4kw1j3: { url: folderLink || '', text: clientName + ' Folder' }
+  });
+  const escaped = colVals.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const query = `mutation { create_item(board_id: ${MONDAY_BOARD_ID}, group_id: "${MONDAY_GROUP_ID}", item_name: "${clientName.replace(/"/g, '')}", column_values: "${escaped}") { id } }`;
   const body = JSON.stringify({ query });
   const data = await httpsRequest({
     hostname: 'api.monday.com', path: '/v2', method: 'POST',
@@ -127,6 +137,7 @@ async function createMondayItem(mondayToken, itemName, columnValues) {
   const result = JSON.parse(data);
   return result.data?.create_item?.id;
 }
+
 
 async function populateExcel(templateBuf, formData, products) {
   const ExcelJS = require('exceljs');
@@ -224,7 +235,8 @@ module.exports = async (req, res) => {
           date4: { date: date },
           text_mm4kq87j: productLinks.map(pl => pl.link || '').join(', ')
         };
-        mondayItemId = await createMondayItem(mondayToken, formData.clientName + ' - ' + products.length + ' product(s)', columnValues);
+        const folderShareLink = productLinks.length > 0 ? productLinks[0].link : '';
+        mondayItemId = await createMondayItem(mondayToken, formData.clientName || 'Unknown', formData.fromName || '', formData.email || '', products.length, formData.codingOption || 'Code Immediately', date, folderShareLink);
       } catch (e) { console.error('Monday error:', e.message); }
     }
 
