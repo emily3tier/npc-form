@@ -6,6 +6,8 @@ const TENANT_ID = '667afa82-1126-4a78-8f76-0918c7f2a845';
 const BASE_FOLDER = 'UPC Submissions Automated';
 const TEMPLATE_NAME = 'NPC Form 2026 1.xlsx';
 const MASTER_LOG = 'Submission Log.xlsx';
+const MONDAY_BOARD_ID = '6568854930';
+const MONDAY_GROUP_ID = 'topics';
 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -83,6 +85,14 @@ async function tryGraphDownload(token, filePath) {
   } catch (e) { return null; }
 }
 
+async function getShareLink(token, folderPath) {
+  try {
+    const encoded = folderPath.split('/').map(encodeURIComponent).join('/');
+    const data = await graphRequest(token, 'POST', '/me/drive/root:/' + encoded + ':/createLink', { type: 'view', scope: 'organization' });
+    return data.link ? data.link.webUrl : null;
+  } catch (e) { return null; }
+}
+
 function enc(s) { return encodeURIComponent(s); }
 
 async function ensureFolder(token, parentPath, folderName) {
@@ -93,6 +103,29 @@ async function ensureFolder(token, parentPath, folderName) {
 async function uploadFile(token, folderPath, fileName, data) {
   const fullPath = (folderPath + '/' + fileName).split('/').map(enc).join('/');
   await graphRequest(token, 'PUT', '/me/drive/root:/' + fullPath + ':/content', data, 'application/octet-stream');
+}
+
+async function sendEmail(token, to, cc, subject, body) {
+  const message = {
+    message: {
+      subject,
+      body: { contentType: 'HTML', content: body },
+      toRecipients: (Array.isArray(to) ? to : [to]).map(a => ({ emailAddress: { address: a } })),
+      ccRecipients: cc ? (Array.isArray(cc) ? cc : [cc]).map(a => ({ emailAddress: { address: a } })) : []
+    }
+  };
+  await graphRequest(token, 'POST', '/me/sendMail', message);
+}
+
+async function createMondayItem(mondayToken, itemName, columnValues) {
+  const query = `mutation { create_item(board_id: ${MONDAY_BOARD_ID}, group_id: "${MONDAY_GROUP_ID}", item_name: "${itemName.replace(/"/g, '')}", column_values: "${JSON.stringify(columnValues).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}") { id } }`;
+  const body = JSON.stringify({ query });
+  const data = await httpsRequest({
+    hostname: 'api.monday.com', path: '/v2', method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': mondayToken, 'API-Version': '2024-01', 'Content-Length': Buffer.byteLength(body) }
+  }, body);
+  const result = JSON.parse(data);
+  return result.data?.create_item?.id;
 }
 
 async function populateExcel(templateBuf, formData, products) {
@@ -133,9 +166,8 @@ async function updateMasterLog(token, formData, products, date) {
     const sheet = workbook.addWorksheet('Submissions');
     const headerRow = sheet.getRow(1);
     headerRow.values = ['Date', 'Client Name', 'Submitted By', 'Email', '# Products', 'Coding Option', 'Submitted to NIQ', 'Notes'];
-    headerRow.font = { bold: true };
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A6B' } };
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A6B' } };
     sheet.columns = [{ width: 12 }, { width: 25 }, { width: 22 }, { width: 30 }, { width: 12 }, { width: 22 }, { width: 18 }, { width: 20 }];
   }
   const sheet = workbook.getWorksheet('Submissions') || workbook.worksheets[0];
@@ -151,6 +183,7 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   try {
     const refreshToken = process.env.MS_REFRESH_TOKEN;
+    const mondayToken = process.env.MONDAY_API_TOKEN;
     if (!refreshToken) throw new Error('MS_REFRESH_TOKEN not set');
     const rawBody = await getRawBody(req);
     const { formData, products } = JSON.parse(rawBody.toString('utf8'));
@@ -158,16 +191,65 @@ module.exports = async (req, res) => {
     const date = new Date().toISOString().slice(0, 10);
     const clientSafe = (formData.clientName || 'Unknown').replace(/[^a-z0-9 ]/gi, '').trim();
     const submissionFolder = BASE_FOLDER + '/' + clientSafe + '/' + date;
+
+    // Create folders
     await ensureFolder(token, '', BASE_FOLDER);
     await ensureFolder(token, BASE_FOLDER, clientSafe);
     await ensureFolder(token, BASE_FOLDER + '/' + clientSafe, date);
     for (const p of products) await ensureFolder(token, submissionFolder, p.folderName);
+
+    // Generate and upload Excel
     const templateBuf = await graphDownload(token, '/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content');
     const excelBuf = await populateExcel(templateBuf, formData, products);
     const excelName = 'NPC_Form_' + clientSafe.replace(/ /g, '_') + '_' + date + '.xlsx';
     await uploadFile(token, submissionFolder, excelName, excelBuf);
+
+    // Update master log
     await updateMasterLog(token, formData, products, date);
-    res.status(200).json({ token, excelData: excelBuf.toString('base64'), excelName, submissionFolder });
+
+    // Get SharePoint links for each product folder
+    const productLinks = [];
+    for (const p of products) {
+      const link = await getShareLink(token, submissionFolder + '/' + p.folderName);
+      productLinks.push({ name: p.folderName, link });
+    }
+    const excelLink = await getShareLink(token, submissionFolder + '/' + excelName);
+
+    // Create Monday.com item
+    let mondayItemId = null;
+    if (mondayToken) {
+      try {
+        const columnValues = {
+          status: { label: 'Pending Review' },
+          date4: { date: date },
+          text_mm4kq87j: productLinks.map(pl => pl.link || '').join(', ')
+        };
+        mondayItemId = await createMondayItem(mondayToken, formData.clientName + ' - ' + products.length + ' product(s)', columnValues);
+      } catch (e) { console.error('Monday error:', e.message); }
+    }
+
+    // Send review email to Emily
+    const productListHtml = productLinks.map(pl =>
+      '<p><strong>' + pl.name + '</strong><br>' + (pl.link ? '<a href="' + pl.link + '">' + pl.link + '</a>' : 'No link') + '</p>'
+    ).join('') + '<p><strong>Excel Form:</strong> ' + (excelLink ? '<a href="' + excelLink + '">' + excelLink + '</a>' : 'No link') + '</p>';
+
+    const reviewEmailBody = `
+      <p>Hi Emily,</p>
+      <p>A new NPC submission has come in from <strong>${formData.clientName}</strong> (${products.length} product(s)).</p>
+      <p><strong>Submitted by:</strong> ${formData.fromName} (${formData.email})<br>
+      <strong>Coding option:</strong> ${formData.codingOption}<br>
+      <strong>Container:</strong> ${formData.containerType} / ${formData.containerMaterial}</p>
+      <p><strong>Product folders:</strong></p>
+      ${productListHtml}
+      <p>Please review the images in OneDrive, then go to Monday.com and change the status to <strong>"Approved"</strong> to trigger the NIQ submission email.</p>
+      <p>— NPC Form Auto-Notification</p>
+    `;
+
+    try {
+      await sendEmail(token, 'emily@3tierbeverages.com', null, 'NPC Review: ' + formData.clientName + ' (' + products.length + ' products)', reviewEmailBody);
+    } catch (e) { console.error('Review email error:', e.message); }
+
+    res.status(200).json({ token, excelData: excelBuf.toString('base64'), excelName, submissionFolder, mondayItemId });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: e.message });
