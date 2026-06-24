@@ -110,13 +110,14 @@ module.exports = async (req, res) => {
     if (payload.challenge) return res.status(200).json({ challenge: payload.challenge });
 
     const event = payload.event;
-    if (!event || event.type !== 'change_column_value') return res.status(200).json({ ok: true });
+    if (!event || (event.type !== 'change_column_value' && event.type !== 'update_column_value')) return res.status(200).json({ ok: true });
 
     // Only fire on status change to "Approved"
     // Check if this is the Status column (color_mm4mbp4j)
     // Allow any status column change to reach the label check
-    const newValue = JSON.parse(event.value?.value || '{}');
-    const label = newValue?.label?.text || newValue?.label;
+    const rawVal = event.value?.value || event.columnValue?.value || event.previousValue?.value || '{}';
+    const newValue = JSON.parse(typeof rawVal === 'string' ? rawVal : JSON.stringify(rawVal));
+    const label = newValue?.label?.text || newValue?.label || event.value?.label?.text || '';
     console.log('LABEL CHECK:', label, 'columnId:', event.columnId);
     if (label !== 'Done' && label !== 'Approved') return res.status(200).json({ ok: true, skipped: 'not approved: ' + label, label, columnId: event.columnId });
 
