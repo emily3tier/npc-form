@@ -131,7 +131,7 @@ module.exports = async (req, res) => {
     const numProducts = getCol('numeric_mm4k42ma');
     const codingOption = getCol('text_mm4kq9qw');
     const folderLink = getCol('link_mm4kw1j3');
-    const productLinksRaw = getCol('long_text_mm4mbp4j');
+    const productLinksRaw = getCol('long_text_mm4mhm3s');
     let parsedLinks = null;
     try { parsedLinks = productLinksRaw ? JSON.parse(productLinksRaw) : null; } catch(e) {}
 

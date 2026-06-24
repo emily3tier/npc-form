@@ -126,7 +126,7 @@ async function createMondayItem(mondayToken, clientName, submittedBy, email, num
     text_mm4kq9qw: codingOption,
     date_mm4kqf41: { date: date },
     link_mm4kw1j3: { url: folderLink || '', text: clientName + ' Folder' },
-    long_text_mm4mbp4j: { text: productLinksJson || '' }
+    long_text_mm4mhm3s: { text: productLinksJson || '' }
   });
   const escaped = colVals.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const query = `mutation { create_item(board_id: ${MONDAY_BOARD_ID}, group_id: "${MONDAY_GROUP_ID}", item_name: "${clientName.replace(/"/g, '')}", column_values: "${escaped}") { id } }`;
