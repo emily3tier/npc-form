@@ -110,9 +110,11 @@ module.exports = async (req, res) => {
     if (!event || event.type !== 'change_column_value') return res.status(200).json({ ok: true });
 
     // Only fire on status change to "Approved"
+    // Check if this is the Status column (color_mm4mbp4j)
+    if (event.columnId !== 'color_mm4mbp4j') return res.status(200).json({ ok: true, skipped: 'not status column' });
     const newValue = JSON.parse(event.value?.value || '{}');
     const label = newValue?.label?.text || newValue?.label;
-    if (label !== 'Approved') return res.status(200).json({ ok: true, skipped: true });
+    if (label !== 'Approved') return res.status(200).json({ ok: true, skipped: 'not approved: ' + label });
 
     const itemId = event.pulseId;
     const mondayToken = process.env.MONDAY_API_TOKEN;
