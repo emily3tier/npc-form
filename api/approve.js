@@ -133,9 +133,11 @@ module.exports = async (req, res) => {
     const folderLink = getCol('link_mm4kw1j3');
 
     // Build NIQ email body — exact format from Emily's example
-    const productLines = folderLink
-      ? `<p><strong>${clientName}</strong><br><a href="${folderLink}">${folderLink}</a></p>`
-      : `<p><strong>${clientName}</strong><br>(No folder link available)</p>`;
+    // Clean up folderLink - Monday link columns return "text - url" or just url
+    const cleanLink = folderLink ? folderLink.split(' - ').pop().trim() : '';
+    const productLines = cleanLink
+      ? `<p><strong>${clientName}</strong></p><p><a href="${cleanLink}">${cleanLink}</a></p>`
+      : `<p><strong>${clientName}</strong></p><p>(No folder link available)</p>`;
 
     const niqBody = `<p>Hi,</p>
 <p>Please find the NPC product image submission for <strong>${clientName}</strong> below.</p>
