@@ -117,7 +117,7 @@ async function sendEmail(token, to, cc, subject, body) {
   await graphRequest(token, 'POST', '/me/sendMail', message);
 }
 
-async function createMondayItem(mondayToken, clientName, submittedBy, email, numProducts, codingOption, date, folderLink) {
+async function createMondayItem(mondayToken, clientName, submittedBy, email, numProducts, codingOption, date, folderLink, productLinksJson) {
   const colVals = JSON.stringify({
     text_mm4k71we: clientName,
     text_mm4ktt2k: submittedBy,
@@ -125,7 +125,8 @@ async function createMondayItem(mondayToken, clientName, submittedBy, email, num
     numeric_mm4k42ma: String(numProducts),
     text_mm4kq9qw: codingOption,
     date_mm4kqf41: { date: date },
-    link_mm4kw1j3: { url: folderLink || '', text: clientName + ' Folder' }
+    link_mm4kw1j3: { url: folderLink || '', text: clientName + ' Folder' },
+    long_text_mm4mbp4j: { text: productLinksJson || '' }
   });
   const escaped = colVals.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const query = `mutation { create_item(board_id: ${MONDAY_BOARD_ID}, group_id: "${MONDAY_GROUP_ID}", item_name: "${clientName.replace(/"/g, '')}", column_values: "${escaped}") { id } }`;
@@ -236,7 +237,13 @@ module.exports = async (req, res) => {
           text_mm4kq87j: productLinks.map(pl => pl.link || '').join(', ')
         };
         const folderShareLink = productLinks.length > 0 ? productLinks[0].link : '';
-        mondayItemId = await createMondayItem(mondayToken, formData.clientName || 'Unknown', formData.fromName || '', formData.email || '', products.length, formData.codingOption || 'Code Immediately', date, folderShareLink);
+        // Build per-product links JSON for email
+        const productLinksData = products.map((p, i) => ({
+          name: p.folderName,
+          link: productLinks[i]?.link || ''
+        }));
+        const excelLinkData = excelLink || '';
+        mondayItemId = await createMondayItem(mondayToken, formData.clientName || 'Unknown', formData.fromName || '', formData.email || '', products.length, formData.codingOption || 'Code Immediately', date, folderShareLink, JSON.stringify({ products: productLinksData, excel: excelLinkData }));
       } catch (e) { console.error('Monday error:', e.message); }
     }
 

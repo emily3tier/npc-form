@@ -131,17 +131,28 @@ module.exports = async (req, res) => {
     const numProducts = getCol('numeric_mm4k42ma');
     const codingOption = getCol('text_mm4kq9qw');
     const folderLink = getCol('link_mm4kw1j3');
+    const productLinksRaw = getCol('long_text_mm4mbp4j');
+    let parsedLinks = null;
+    try { parsedLinks = productLinksRaw ? JSON.parse(productLinksRaw) : null; } catch(e) {}
 
     // Build NIQ email body — exact format from Emily's example
-    // Clean up folderLink - Monday link columns return "text - url" or just url
-    const cleanLink = folderLink ? folderLink.split(' - ').pop().trim() : '';
-    const productLines = cleanLink
-      ? `<p><strong>${clientName}</strong></p><p><a href="${cleanLink}">${cleanLink}</a></p>`
-      : `<p><strong>${clientName}</strong></p><p>(No folder link available)</p>`;
+    // Build product lines from stored JSON or fall back to single folder link
+    let productLines = '';
+    if (parsedLinks && parsedLinks.products && parsedLinks.products.length > 0) {
+      productLines = parsedLinks.products.map(p =>
+        `<p><strong>${p.name}</strong><br><a href="${p.link}">${p.link}</a></p>`
+      ).join('\n');
+      if (parsedLinks.excel) {
+        productLines += `\n<p><a href="${parsedLinks.excel}">NPC Form ${new Date().getFullYear()}.xlsx</a></p>`;
+      }
+    } else {
+      const cleanLink = folderLink ? folderLink.split(' - ').pop().trim() : '';
+      productLines = cleanLink
+        ? `<p><strong>${clientName}</strong><br><a href="${cleanLink}">${cleanLink}</a></p>`
+        : `<p><strong>${clientName}</strong><br>(No folder link available)</p>`;
+    }
 
-    const niqBody = `<p>Hi,</p>
-<p>Please find the NPC product image submission for <strong>${clientName}</strong> below.</p>
-${productLines}
+    const niqBody = `${productLines}
 <br>
 <p>Emily Kessel, Consultant Analyst Intern, UPC Coordinator<br>
 C: +925-984-6798<br>
@@ -155,8 +166,7 @@ Data-Driven Solutions, Dedicated Partnership, and Genuine Relationships</p>`;
 
     // Send client confirmation if we have their email
     if (submittedByEmail && submittedByEmail !== TEST_EMAIL) {
-      const clientBody = `<p>Hi,</p>
-<p>Your NPC UPC coding submission for <strong>${clientName}</strong> (${numProducts} product(s)) has been submitted to NIQ for processing.</p>
+      const clientBody = `<p>Your NPC UPC coding submission for <strong>${clientName}</strong> (${numProducts} product(s)) has been submitted to NIQ for processing.</p>
 <p>Coding option: ${codingOption}</p>
 <p>Thank you for submitting through 3 Tier Beverages!</p>
 <p>Emily Kessel, Consultant Analyst Intern, UPC Coordinator<br>
