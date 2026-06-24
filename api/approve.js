@@ -111,10 +111,10 @@ module.exports = async (req, res) => {
 
     // Only fire on status change to "Approved"
     // Check if this is the Status column (color_mm4mbp4j)
-    if (event.columnId !== 'color_mm4mbp4j') return res.status(200).json({ ok: true, skipped: 'not status column' });
+    // Allow any status column change to reach the label check
     const newValue = JSON.parse(event.value?.value || '{}');
     const label = newValue?.label?.text || newValue?.label;
-    if (label !== 'Approved') return res.status(200).json({ ok: true, skipped: 'not approved: ' + label });
+    if (label !== 'Done' && label !== 'Approved') return res.status(200).json({ ok: true, skipped: 'not approved: ' + label });
 
     const itemId = event.pulseId;
     const mondayToken = process.env.MONDAY_API_TOKEN;
@@ -163,7 +163,7 @@ C: +925-984-6798</p>`;
     }
 
     // Update Monday status to "Submitted to NIQ"
-    await updateMondayStatus(mondayToken, itemId, TESTING_MODE ? 'Done' : 'Submitted to NIQ');
+    await updateMondayStatus(mondayToken, itemId, TESTING_MODE ? 'Working on it' : 'Done');
 
     res.status(200).json({ ok: true, sent: true, testing: TESTING_MODE, to: toAddress });
   } catch (e) {
