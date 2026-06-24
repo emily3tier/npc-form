@@ -101,7 +101,10 @@ module.exports = async (req, res) => {
 
   try {
     const rawBody = await getRawBody(req);
-    const payload = JSON.parse(rawBody.toString('utf8'));
+    const rawStr = rawBody.toString('utf8');
+    console.log('MONDAY PAYLOAD:', rawStr.substring(0, 500));
+    const payload = JSON.parse(rawStr);
+    console.log('EVENT:', JSON.stringify(payload.event || {}).substring(0, 300));
 
     // Monday.com webhook challenge handshake
     if (payload.challenge) return res.status(200).json({ challenge: payload.challenge });
@@ -114,7 +117,8 @@ module.exports = async (req, res) => {
     // Allow any status column change to reach the label check
     const newValue = JSON.parse(event.value?.value || '{}');
     const label = newValue?.label?.text || newValue?.label;
-    if (label !== 'Done' && label !== 'Approved') return res.status(200).json({ ok: true, skipped: 'not approved: ' + label });
+    console.log('LABEL CHECK:', label, 'columnId:', event.columnId);
+    if (label !== 'Done' && label !== 'Approved') return res.status(200).json({ ok: true, skipped: 'not approved: ' + label, label, columnId: event.columnId });
 
     const itemId = event.pulseId;
     const mondayToken = process.env.MONDAY_API_TOKEN;
