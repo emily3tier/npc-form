@@ -145,7 +145,7 @@ module.exports = async (req, res) => {
     let productLines = '';
     if (parsedLinks && parsedLinks.products && parsedLinks.products.length > 0) {
       productLines = parsedLinks.products.map(p =>
-        `<p><strong>${p.name}</strong><br><a href="${p.link}">${p.link}</a></p>`
+        `<p><strong>${p.name}</strong><br><a href="${p.link}">${p.name}</a></p>`
       ).join('\n');
       if (parsedLinks.excel) {
         productLines += `\n<p><a href="${parsedLinks.excel}">NPC Form ${new Date().getFullYear()}.xlsx</a></p>`;
