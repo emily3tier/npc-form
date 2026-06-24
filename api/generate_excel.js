@@ -88,7 +88,7 @@ async function tryGraphDownload(token, filePath) {
 async function getShareLink(token, folderPath) {
   try {
     const encoded = folderPath.split('/').map(encodeURIComponent).join('/');
-    const data = await graphRequest(token, 'POST', '/me/drive/root:/' + encoded + ':/createLink', { type: 'view', scope: 'organization' });
+    const data = await graphRequest(token, 'POST', '/me/drive/root:/' + encoded + ':/createLink', { type: 'view', scope: 'anonymous' });
     return data.link ? data.link.webUrl : null;
   } catch (e) { return null; }
 }
