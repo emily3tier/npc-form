@@ -6,7 +6,7 @@ const TENANT_ID = '667afa82-1126-4a78-8f76-0918c7f2a845';
 const MONDAY_BOARD_ID = '18419075542';
 
 // SET TO true WHEN READY TO GO LIVE — sends to NIQ instead of Emily
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 const NIQ_EMAIL = 'npcimages@nielseniq.com';
 const NIQ_CC = 'james.augustine@nielseniq.com';
 const TEST_EMAIL = 'emily@3tierbeverages.com';
