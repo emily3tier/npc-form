@@ -213,7 +213,8 @@ module.exports = async (req, res) => {
     // Generate and upload Excel
     const templateBuf = await graphDownload(token, '/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content');
     const excelBuf = await populateExcel(templateBuf, formData, products);
-    const excelName = 'NPC_Form_' + clientSafe.replace(/ /g, '_') + '_' + date + '.xlsx';
+    const timeStamp = new Date().toISOString().slice(11,16).replace(':','');
+    const excelName = 'NPC_Form_' + clientSafe.replace(/ /g, '_') + '_' + date + '_' + timeStamp + '.xlsx';
     await uploadFile(token, submissionFolder, excelName, excelBuf);
 
     // Update master log
