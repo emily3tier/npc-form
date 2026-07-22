@@ -53,6 +53,15 @@ function parseMultipart(body, boundary) {
   return parts;
 }
 
+// Increase body size limit to 50MB for image uploads
+module.exports.config = {
+  api: {
+    bodyParser: false,
+    sizeLimit: '50mb',
+    responseLimit: false,
+  }
+};
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
