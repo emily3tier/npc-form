@@ -386,72 +386,31 @@ async function handleSubmit() {
     submissionFolder = _sf || '';
 
     // Step 2: Upload files directly to OneDrive from browser
-    for (const p of products) {
-      const upc = calcUPC(p.barcode);
-      const folderName = calcFolder(p.barcode, p.name);
-      for (let j = 0; j < p.files.length; j++) {
-        const file = p.files[j];
-        setStatus('Uploading image ' + (j+1) + ' of ' + p.files.length + ' for ' + (p.name || 'product') + '...', 'status-loading');
-        const ext = file.name.split('.').pop().toLowerCase();
-        const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
-        const _sf = submissionFolder || 'UPC Submissions Automated/' + folderName;
-        const filePath = _sf.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
-        // Compress image if needed then upload directly to OneDrive
-        const fileToUpload = await compressIfNeeded(file);
-        const graphPath = (submissionFolder ? submissionFolder + '/' + folderName : 'UPC Submissions Automated/' + folderName) + '/' + fname;
-        const encodedPath = graphPath.split('/').map(s => encodeURIComponent(s)).join('/');
-        if (file.size > 4 * 1024 * 1024) {
-          // Large file: chunked upload via session
-          const sessionResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + encodedPath + ':/createUploadSession', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace', name: fname } })
-          });
-          if (!sessionResp.ok) throw new Error('Could not create upload session: ' + await sessionResp.text());
-          const session = await sessionResp.json();
-          // Upload in 3MB chunks via API proxy (avoids CORS on SharePoint URL)
-          const chunkSize = 1.5 * 1024 * 1024;
-          const buf = await file.arrayBuffer();
-          let start = 0;
-          while (start < file.size) {
-            const end = Math.min(start + chunkSize, file.size);
-            const chunk = new Uint8Array(buf.slice(start, end));
-            // Convert to base64 safely
-            let b64 = '';
-            const batchSize = 8192;
-            for (let i = 0; i < chunk.length; i += batchSize) {
-              b64 += String.fromCharCode.apply(null, chunk.subarray(i, i + batchSize));
-            }
-            b64 = btoa(b64);
-            const chunkResp = await fetch('/api/upload_chunk', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                uploadUrl: session.uploadUrl,
-                data: b64,
-                start,
-                end: end - 1,
-                total: file.size
-              })
-            });
-            if (!chunkResp.ok) throw new Error('Chunk upload failed: ' + await chunkResp.text());
-            start = end;
+    // Upload all images server-side in one request
+      const hasImages = products.some(p => p.files && p.files.length > 0);
+      if (hasImages) {
+        setStatus('Uploading images to OneDrive\u2026');
+        const imgForm = new FormData();
+        imgForm.append('submissionFolder', submissionFolder);
+        for (const p of products) {
+          if (!p.files || p.files.length === 0) continue;
+          const fName = calcFolder(p.barcode, p.name);
+          if (!fName) continue;
+          for (let j = 0; j < p.files.length; j++) {
+            const f = p.files[j];
+            const ext = f.name.split('.').pop().toLowerCase();
+            const upc = calcUPC(p.barcode);
+            const outName = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
+            imgForm.append(fName + '|||' + outName, f, outName);
           }
-        } else {
-          // Small file: direct upload
-          const uploadResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + encodedPath + ':/content', {
-            method: 'PUT',
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/octet-stream' },
-            body: file
-          });
-          if (!uploadResp.ok) throw new Error('Upload failed: ' + await uploadResp.text());
         }
+        const upResp = await fetch('/api/upload_images', { method: 'POST', body: imgForm });
+        const upResult = await upResp.json();
+        if (!upResp.ok) throw new Error('Image upload failed: ' + (upResult.error || upResp.status));
+        console.log('Uploaded', upResult.uploaded, '/', upResult.total, 'images');
       }
-    }
 
-    setStatus('Finalizing...', 'status-loading');
-    const resp = { ok: true };
-    const result = { excel: excelData, excelName };
+          const result = { excel: excelData, excelName };
 
     // Download Excel to client
     const bin = atob(result.excel);
