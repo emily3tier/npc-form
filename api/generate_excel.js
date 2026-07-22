@@ -202,7 +202,8 @@ module.exports = async (req, res) => {
     const token = await getAccessToken(refreshToken);
     const date = new Date().toISOString().slice(0, 10);
     const clientSafe = (formData.clientName || 'Unknown').replace(/[^a-z0-9 ]/gi, '').trim();
-    const submissionFolder = BASE_FOLDER + '/' + clientSafe + '/' + date;
+    const timeStr = new Date().toISOString().slice(11,16).replace(':','');
+    const submissionFolder = BASE_FOLDER + '/' + clientSafe + '/' + date + '_' + timeStr;
 
     // Create folders
     await ensureFolder(token, '', BASE_FOLDER);
