@@ -386,28 +386,26 @@ async function handleSubmit() {
     submissionFolder = _sf || '';
 
     // Step 2: Upload files directly to OneDrive from browser
-    // Upload all images server-side in one request
-      const hasImages = products.some(p => p.files && p.files.length > 0);
-      if (hasImages) {
-        setStatus('Uploading images to OneDrive\u2026');
+    // Upload images per-product to stay within size limits
+      for (let pi = 0; pi < products.length; pi++) {
+        const p = products[pi];
+        if (!p.files || p.files.length === 0) continue;
+        const fName = calcFolder(p.barcode, p.name);
+        if (!fName) continue;
+        setStatus('Uploading images for product ' + (pi+1) + ' of ' + products.length + '...');
         const imgForm = new FormData();
         imgForm.append('submissionFolder', submissionFolder);
-        for (const p of products) {
-          if (!p.files || p.files.length === 0) continue;
-          const fName = calcFolder(p.barcode, p.name);
-          if (!fName) continue;
-          for (let j = 0; j < p.files.length; j++) {
-            const f = p.files[j];
-            const ext = f.name.split('.').pop().toLowerCase();
-            const upc = calcUPC(p.barcode);
-            const outName = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
-            imgForm.append(fName + '|||' + outName, f, outName);
-          }
+        for (let j = 0; j < p.files.length; j++) {
+          const f = p.files[j];
+          const ext = f.name.split('.').pop().toLowerCase();
+          const upc = calcUPC(p.barcode);
+          const outName = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
+          imgForm.append(fName + '|||' + outName, f, outName);
         }
         const upResp = await fetch('/api/upload_images', { method: 'POST', body: imgForm });
         const upResult = await upResp.json();
-        if (!upResp.ok) throw new Error('Image upload failed: ' + (upResult.error || upResp.status));
-        console.log('Uploaded', upResult.uploaded, '/', upResult.total, 'images');
+        if (!upResp.ok) throw new Error('Image upload failed for product ' + (pi+1) + ': ' + (upResult.error || upResp.status));
+        console.log('Product', pi+1, ': uploaded', upResult.uploaded, '/', upResult.total, 'images');
       }
 
           const result = { excel: excelData, excelName };
