@@ -386,26 +386,30 @@ async function handleSubmit() {
     submissionFolder = _sf || '';
 
     // Step 2: Upload files directly to OneDrive from browser
-    // Upload images per-product to stay within size limits
+    // Upload images directly to OneDrive per product
       for (let pi = 0; pi < products.length; pi++) {
         const p = products[pi];
         if (!p.files || p.files.length === 0) continue;
-        const fName = calcFolder(p.barcode, p.name);
-        if (!fName) continue;
+        const folderName = calcFolder(p.barcode, p.name);
+        if (!folderName) continue;
         setStatus('Uploading images for product ' + (pi+1) + ' of ' + products.length + '...');
-        const imgForm = new FormData();
-        imgForm.append('submissionFolder', submissionFolder);
         for (let j = 0; j < p.files.length; j++) {
-          const f = p.files[j];
-          const ext = f.name.split('.').pop().toLowerCase();
+          const file = p.files[j];
+          const ext = file.name.split('.').pop().toLowerCase();
           const upc = calcUPC(p.barcode);
-          const outName = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
-          imgForm.append(fName + '|||' + outName, f, outName);
+          const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
+          const _sf = submissionFolder || 'UPC Submissions Automated/' + folderName;
+          const filePath = _sf.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
+          const uploadResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + filePath + ':/content', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': file.type || 'image/jpeg' },
+            body: file
+          });
+          if (!uploadResp.ok) {
+            const err = await uploadResp.text();
+            throw new Error('HTTP ' + uploadResp.status + ': ' + err.substring(0, 100));
+          }
         }
-        const upResp = await fetch('/api/upload_images', { method: 'POST', body: imgForm });
-        const upResult = await upResp.json();
-        if (!upResp.ok) throw new Error('Image upload failed for product ' + (pi+1) + ': ' + (upResult.error || upResp.status));
-        console.log('Product', pi+1, ': uploaded', upResult.uploaded, '/', upResult.total, 'images');
       }
 
           const result = { excel: excelData, excelName };
