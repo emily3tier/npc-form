@@ -395,7 +395,7 @@ async function handleSubmit() {
         const ext = file.name.split('.').pop().toLowerCase();
         const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
         const _sf = submissionFolder || 'UPC Submissions Automated/' + folderName;
-        const filePath = _sf.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(fname);
+        const filePath = _sf.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
         // Compress image if needed then upload directly to OneDrive
         const fileToUpload = await compressIfNeeded(file);
         const graphPath = (submissionFolder ? submissionFolder + '/' + folderName : 'UPC Submissions Automated/' + folderName) + '/' + fname;
