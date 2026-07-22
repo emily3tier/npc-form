@@ -62,7 +62,7 @@ module.exports.config = {
   }
 };
 
-module.exports = async (req, res) => {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -102,4 +102,12 @@ module.exports = async (req, res) => {
     console.error(e);
     res.status(500).json({ error: e.message });
   }
+}
+
+module.exports = handler;
+module.exports.config = {
+  api: {
+    bodyParser: false,
+    responseLimit: false,
+  },
 };
