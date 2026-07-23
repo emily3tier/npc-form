@@ -1,1 +1,447 @@
-undefined
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIQ NPC UPC Coding — 3 Tier Beverages</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#f0eeea;color:#1a1a1a;min-height:100vh;padding:2rem 1rem;}
+.page{max-width:860px;margin:0 auto;}
+.header{background:#002060;color:#fff;border-radius:10px;padding:1.5rem 2rem;margin-bottom:1rem;}
+.header h1{font-size:20px;font-weight:700;}
+.header p{font-size:13px;opacity:0.75;margin-top:4px;}
+.section{background:#fff;border:1px solid #ddd;border-radius:10px;padding:1.5rem;margin-bottom:1rem;}
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#002060;margin-bottom:1rem;padding-bottom:8px;border-bottom:2px solid #002060;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+.field label{font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;}
+.field input,.field select{width:100%;padding:8px 10px;font-size:13px;border:1px solid #ccc;border-radius:6px;color:#1a1a1a;outline:none;transition:border 0.15s;font-family:inherit;background:#fff;}
+.field input:focus,.field select:focus{border-color:#002060;box-shadow:0 0 0 2px rgba(0,32,96,0.08);}
+.field input.err{border-color:#c0392b;}
+.hint{font-size:11px;color:#888;margin-top:3px;line-height:1.5;}
+.req{color:#c0392b;}
+.coding-opts{display:flex;gap:8px;flex-wrap:wrap;}
+.coding-opt{display:flex;align-items:center;gap:6px;cursor:pointer;padding:7px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px;transition:all 0.15s;user-select:none;}
+.coding-opt input{accent-color:#002060;}
+.coding-opt:has(input:checked){background:#002060;color:#fff;border-color:#002060;}
+.product-card{background:#f8f8f6;border:1px solid #e0ddd8;border-radius:8px;padding:1.25rem;margin-bottom:12px;}
+.product-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+.product-label{font-size:13px;font-weight:700;color:#002060;}
+.remove-btn{font-size:11px;color:#c0392b;background:none;border:1px solid #f5c6c6;border-radius:5px;cursor:pointer;padding:3px 9px;}
+.remove-btn:hover{background:#fef0f0;}
+.img-instructions{background:#fff8e6;border:1px solid #f0d07a;border-radius:6px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:#5a4200;line-height:1.7;}
+.dropzone{border:2px dashed #bbb;border-radius:7px;padding:14px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:80px;transition:all 0.15s;background:#fff;text-align:center;}
+.dropzone:hover,.dropzone.drag{border-color:#002060;background:#f0f3fa;}
+.dropzone.ok{border-color:#27ae60;border-style:solid;background:#f0faf5;}
+.dropzone.err-state{border-color:#c0392b;}
+.dz-icon{font-size:22px;color:#bbb;line-height:1;}
+.dz-hint{font-size:11px;color:#999;}
+.field-err{font-size:11px;color:#c0392b;margin-top:3px;}
+.upc-pill{display:none;margin-top:5px;background:#eef4fc;border-radius:5px;padding:5px 9px;font-size:11px;color:#1a3a5c;}
+.add-product-btn{width:100%;padding:11px;border:2px dashed #002060;border-radius:8px;background:none;color:#002060;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;margin-bottom:1rem;}
+.add-product-btn:hover{background:#f0f3fa;}
+.submit-section{background:#002060;border-radius:10px;padding:1.5rem 2rem;margin-top:0.5rem;}
+.submit-section p{color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:1rem;line-height:1.6;}
+.submit-btn{width:100%;padding:14px;background:#fff;color:#002060;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.submit-btn:hover:not(:disabled){background:#e8ecf5;}
+.submit-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.status-msg{margin-top:12px;padding:11px 14px;border-radius:7px;font-size:13px;font-weight:500;line-height:1.6;}
+.status-loading{background:rgba(255,255,255,0.15);color:#fff;}
+.status-success{background:rgba(39,174,96,0.25);color:#d5f5e3;}
+.status-error{background:rgba(192,57,43,0.25);color:#fadbd8;}
+@media(max-width:580px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Nielsen New Product Coding Form</h1>
+    <p>3 Tier Beverages &times; NIQ &nbsp;&middot;&nbsp; Complete all fields and upload label images for each product.</p>
+  </div>
+
+
+
+  <div class="section">
+    <div class="section-title">Submission Details</div>
+    <div class="grid-2">
+      <div class="field"><label>Your Name <span class="req">*</span></label><input type="text" id="f-from" placeholder="Full name"></div>
+      <div class="field"><label>Your Email <span class="req">*</span></label><input type="text" id="f-email" placeholder="your@email.com"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Client / Company Name <span class="req">*</span></label><input type="text" id="f-client" placeholder="e.g. 3 Tier Beverages"></div>
+      <div class="field"><label>Is this the client's own product?</label><select id="f-own"><option>Yes</option><option>No</option></select></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Coding Option <span class="req">*</span></div>
+    <div class="coding-opts">
+      <label class="coding-opt"><input type="radio" name="coding" value="Code Immediately" checked> Code Immediately</label>
+      <label class="coding-opt"><input type="radio" name="coding" value="Delay until Sales"> Delay until Sales</label>
+      <label class="coding-opt"><input type="radio" name="coding" value="Code by Saturday Date"> Code by Saturday Date</label>
+    </div>
+    <div id="sat-wrap" style="display:none;margin-top:10px;max-width:220px;">
+      <div class="field"><label>Saturday Date</label><input type="text" id="f-saturday" placeholder="e.g. 2026-05-23"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Container Details (applies to all products)</div>
+    <div class="grid-3">
+      <div class="field"><label>Container Type <span class="req">*</span></label><input type="text" id="f-container-type" placeholder="e.g. Bottle, Can"></div>
+      <div class="field"><label>Container Material <span class="req">*</span></label><input type="text" id="f-container-material" placeholder="e.g. Glass, Aluminum"></div>
+      <div class="field"><label>Additional Info</label><input type="text" id="f-addl-info" placeholder="e.g. 5mg THC, gluten-free"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Products</div>
+    <div id="products-container"></div>
+    <div style="margin-top:8px;padding:10px 14px;background:#f0f7ff;border:1px solid #b3d4f5;border-radius:6px;font-size:13px;color:#1B3A6B;"><strong>Only have PNG files?</strong> Convert them to JPG first: <a href="https://png2jpg.com/" target="_blank" style="color:#1B3A6B;font-weight:600;text-decoration:underline;">png2jpg.com</a> \u2014 then come back and submit!</div>
+  <button class="add-product-btn" onclick="addProduct()">+ Add Another Product (max 5 per submission)</button>
+  </div>
+
+  <div class="submit-section">
+    <p>Submitting will send your product images and completed NPC form directly to 3 Tier Beverages. A copy of the NPC Excel file will also be downloaded to your device for your records.</p>
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">Submit to 3 Tier Beverages</button>
+    <div id="status-msg" style="display:none;"></div>
+  </div>
+
+</div>
+<script>
+// ── UPC Logic ─────────────────────────────────
+function calcUPC(barcode) {
+  const d = (barcode || '').replace(/\D/g, '');
+  return d.length >= 2 ? '0' + d.slice(0, d.length - 1) : '';
+}
+function calcFolder(barcode, name) {
+  const u = calcUPC(barcode);
+  return u && name.trim() ? u + ' ' + name.trim().toUpperCase() : '';
+}
+
+// ── File to base64 ────────────────────────────
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ── Compress image if too large ────────────────
+function compressIfNeeded(file) {
+  return new Promise((resolve) => {
+    if (!file.type.includes('jpeg') && !file.type.includes('jpg')) {
+      resolve(file); return;
+    }
+    if (file.size <= 3.5 * 1024 * 1024) {
+      resolve(file); return;
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      let quality = 0.7;
+      let w = img.width, h = img.height;
+      // Scale down if very large
+      const maxDim = 4000;
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim/w, maxDim/h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => {
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => resolve(file);
+    img.src = url;
+  });
+}
+
+// ── Products ──────────────────────────────────
+let products = [];
+let nextId = 1;
+
+function emptyProduct() {
+  return { id: nextId++, barcode: '', name: '', asin: '', costco: '', files: [], fileErr: null };
+}
+
+function addProduct() {
+    if (productCount >= 5) { alert("Maximum 5 products per submission.\nPlease submit again for any additional products."); return; }
+  products.push(emptyProduct());
+  renderProducts();
+  setTimeout(() => {
+    const cards = document.querySelectorAll('.product-card');
+    if (cards.length) cards[cards.length-1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+
+function removeProduct(id) {
+  products = products.filter(p => p.id !== id);
+  renderProducts();
+}
+
+function renderProducts() {
+  document.getElementById('products-container').innerHTML =
+    products.map((p, i) => productHTML(p, i)).join('');
+  products.forEach(p => {
+    ['barcode','name','asin','costco'].forEach(key => {
+      const el = document.getElementById('p-' + key + '-' + p.id);
+      if (el) el.addEventListener('input', function() {
+        const prod = products.find(x => x.id === p.id);
+        if (prod) prod[key] = this.value;
+        updateUPCPill(p.id);
+      });
+    });
+    setupDZ(p.id);
+  });
+}
+
+function updateUPCPill(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  const upc = calcUPC(p.barcode);
+  const folder = calcFolder(p.barcode, p.name);
+  const pill = document.getElementById('upc-pill-' + id);
+  if (!pill) return;
+  if (upc && p.barcode.replace(/\D/g,'').length >= 12) {
+    pill.style.display = 'block';
+    pill.innerHTML = 'UPC: <strong>' + upc + '</strong>' + (folder ? '&nbsp;&nbsp;Folder: <strong>' + folder + '</strong>' : '');
+  } else {
+    pill.style.display = 'none';
+  }
+}
+
+function productHTML(p, i) {
+  const fileListHTML = p.files.length > 0
+    ? p.files.map(f =>
+        '<div style="font-size:11px;color:#27ae60;font-weight:600;padding:2px 0;">&#10003; ' +
+        f.name + ' <span style="color:#888;font-weight:400;">(' + (f.size/1024/1024).toFixed(2) + ' MB)</span></div>'
+      ).join('') : '';
+  return (
+    '<div class="product-card" id="card-' + p.id + '">' +
+      '<div class="product-header">' +
+        '<span class="product-label">Product #' + (i+1) + '</span>' +
+        (products.length > 1 ? '<button class="remove-btn" onclick="removeProduct(' + p.id + ')">Remove</button>' : '') +
+      '</div>' +
+      '<div class="grid-2">' +
+        '<div class="field">' +
+          '<label>Barcode &mdash; 12 digits as shown on package <span class="req">*</span></label>' +
+          '<input type="text" id="p-barcode-' + p.id + '" value="' + p.barcode + '" placeholder="e.g. 086001281158" maxlength="13">' +
+          '<div class="hint">Enter all 12 digits exactly as printed. The UPC is calculated automatically.</div>' +
+          '<div class="upc-pill" id="upc-pill-' + p.id + '"></div>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Product Name <span class="req">*</span></label>' +
+          '<input type="text" id="p-name-' + p.id + '" value="' + p.name + '" placeholder="e.g. 3 Tier Lager 12oz Single">' +
+          '<div class="hint">Include brand, flavor, volume (e.g. 750ml, 12oz), and pack size if applicable (e.g. 4-pack, 6-pack). This is how your product will appear in NIQ.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="grid-2">' +
+        '<div class="field"><label>ASIN (optional)</label><input type="text" id="p-asin-' + p.id + '" value="' + p.asin + '" placeholder="Amazon Standard ID"></div>' +
+        '<div class="field"><label>Costco SKU (optional)</label><input type="text" id="p-costco-' + p.id + '" value="' + p.costco + '" placeholder="Costco SKU number"></div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Product Images <span class="req">*</span></label>' +
+        '<div class="img-instructions">' +
+          '<strong>What to upload:</strong> Front and back label as separate photos, or one flat/box image showing all sides.<br>' +
+          '<strong>Format &amp; size:</strong> JPG or PDF only &nbsp;&middot;&nbsp; Minimum 500KB per file &nbsp;&middot;&nbsp; All text must be clearly legible<br>' +
+          '<strong>Front label must show:</strong> Brand name, product name, size, and proof/ABV<br>' +
+          '<strong>Back label must show:</strong> UPC barcode, government warning, and nutritional facts' +
+        '</div>' +
+        '<div class="dropzone' + (p.files.length > 0 ? ' ok' : p.fileErr ? ' err-state' : '') + '" id="dz-' + p.id + '">' +
+          (p.files.length > 0
+            ? '<div style="width:100%;padding:0 4px">' + fileListHTML + '<div style="font-size:11px;color:#888;margin-top:6px;">Click or drag to add more files</div></div>'
+            : '<span class="dz-icon">+</span><span class="dz-hint">Click or drag &amp; drop &middot; JPG or PDF &middot; min 500KB<br>You can upload multiple files at once</span>') +
+        '</div>' +
+        '<input type="file" id="fi-' + p.id + '" accept=".jpg,.jpeg,.pdf" multiple style="display:none">' +
+        '<div class="field-err" id="fe-' + p.id + '">' + (p.fileErr || '') + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function setupDZ(id) {
+  const zone = document.getElementById('dz-' + id);
+  const input = document.getElementById('fi-' + id);
+  if (!zone || !input) return;
+  zone.onclick = () => input.click();
+  zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
+  zone.ondragleave = () => zone.classList.remove('drag');
+  zone.ondrop = e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    if (e.dataTransfer.files.length) addFiles(id, Array.from(e.dataTransfer.files));
+  };
+  input.onchange = () => { if (input.files.length) addFiles(id, Array.from(input.files)); input.value = ''; };
+}
+
+function addFiles(id, newFiles) {
+  const p = products.find(p => p.id === id);
+  if (!p) return;
+  let errMsg = null;
+  newFiles.forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['jpg','jpeg','pdf'].includes(ext)) {
+      errMsg = '"' + file.name + '" is not a JPG or PDF.';
+    } else if (file.size < 900*1024) {
+      errMsg = '"' + file.name + '" is under 1MB (NIQ requirement).';
+    } else {
+      p.files.push(file);
+    }
+  });
+  p.fileErr = errMsg;
+  refreshDZ(id);
+}
+
+function refreshDZ(id) {
+  const p = products.find(p => p.id === id);
+  if (!p) return;
+  const zone = document.getElementById('dz-' + id);
+  const errEl = document.getElementById('fe-' + id);
+  if (!zone) return;
+  zone.className = 'dropzone' + (p.files.length > 0 ? ' ok' : p.fileErr ? ' err-state' : '');
+  if (p.files.length > 0) {
+    const fl = p.files.map(f =>
+      '<div style="font-size:11px;color:#27ae60;font-weight:600;padding:2px 0;">&#10003; ' +
+      f.name + ' <span style="color:#888;font-weight:400;">(' + (f.size/1024/1024).toFixed(2) + ' MB)</span></div>'
+    ).join('');
+    zone.innerHTML = '<div style="width:100%;padding:0 4px">' + fl + '<div style="font-size:11px;color:#888;margin-top:6px;">Click or drag to add more files</div></div>';
+  } else {
+    zone.innerHTML = '<span class="dz-icon">+</span><span class="dz-hint">Click or drag &amp; drop &middot; JPG or PDF &middot; min 500KB<br>You can upload multiple files at once</span>';
+  }
+  if (errEl) errEl.textContent = p.fileErr || '';
+  zone.onclick = () => document.getElementById('fi-' + id).click();
+}
+
+// ── Validation ────────────────────────────────
+function validate() {
+  let ok = true;
+  [['f-from','Name required'],['f-email','Email required'],['f-client','Client name required'],
+   ['f-container-type','Container type required'],['f-container-material','Container material required']
+  ].forEach(([id, msg]) => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('err'); el.placeholder = msg; ok = false; }
+    else el.classList.remove('err');
+  });
+  const productOk = products.every(p => p.barcode && p.name && p.files.length > 0);
+  if (!productOk) ok = false;
+  if (!ok) alert('Please fill in all required fields and upload at least one image for every product.');
+  return ok;
+}
+
+// ── Submit ────────────────────────────────────
+async function handleSubmit() {
+  let submissionFolder = '';
+  if (!validate()) return;
+
+  const fromName   = document.getElementById('f-from').value.trim();
+  const email      = document.getElementById('f-email').value.trim();
+  const clientName = document.getElementById('f-client').value.trim();
+  const ownProduct = document.getElementById('f-own').value;
+  const codingOpt  = document.querySelector('input[name=coding]:checked').value;
+  const satDate    = document.getElementById('f-saturday').value.trim();
+  const contType   = document.getElementById('f-container-type').value.trim();
+  const contMat    = document.getElementById('f-container-material').value.trim();
+  const addlInfo   = document.getElementById('f-addl-info').value.trim();
+
+  const btn = document.getElementById('submit-btn');
+  const statusEl = document.getElementById('status-msg');
+  btn.disabled = true;
+  statusEl.style.display = 'block';
+
+  function setStatus(msg, cls) { statusEl.className = 'status-msg ' + cls; statusEl.innerHTML = msg; }
+
+  try {
+    setStatus('Preparing submission...', 'status-loading');
+
+    // Step 1: Get access token from API (no files sent yet)
+    setStatus('Connecting to OneDrive...', 'status-loading');
+    const tokenResp = await fetch('/api/generate_excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'getToken',
+        formData: { fromName, email, clientName, ownProduct, codingOption: codingOpt, saturdayDate: satDate, containerType: contType, containerMaterial: contMat, additionalInfo: addlInfo },
+        products: products.map(p => ({
+          upc: calcUPC(p.barcode),
+          name: p.name,
+          asin: p.asin || '',
+          costco: p.costco || '',
+          folderName: calcFolder(p.barcode, p.name)
+        }))
+      })
+    });
+    if (!tokenResp.ok) {
+      const err = await tokenResp.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(err.error || tokenResp.statusText);
+    }
+    const { token, excelData, excelName, submissionFolder: _sf } = await tokenResp.json();
+    submissionFolder = _sf || '';
+
+    // Step 2: Upload files directly to OneDrive from browser
+    // Upload images directly to OneDrive per product
+      for (let pi = 0; pi < products.length; pi++) {
+        const p = products[pi];
+        if (!p.files || p.files.length === 0) continue;
+        const folderName = calcFolder(p.barcode, p.name);
+        if (!folderName) continue;
+        setStatus('Uploading images for product ' + (pi+1) + ' of ' + products.length + '...');
+        for (let j = 0; j < p.files.length; j++) {
+          const file = p.files[j];
+          const ext = file.name.split('.').pop().toLowerCase();
+          const upc = calcUPC(p.barcode);
+          const fname = p.files.length === 1 ? upc + '.' + ext : upc + '_' + (j+1) + '.' + ext;
+          const _sf = submissionFolder || 'UPC Submissions Automated/' + folderName;
+          const filePath = _sf.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/' + encodeURIComponent(fname);
+          const uploadResp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/' + filePath + ':/content', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': file.type || 'image/jpeg' },
+            body: file
+          });
+          if (!uploadResp.ok) {
+            const err = await uploadResp.text();
+            throw new Error('HTTP ' + uploadResp.status + ': ' + err.substring(0, 100));
+          }
+        }
+      }
+
+          const result = { excel: excelData, excelName };
+
+    // Download Excel to client
+    const bin = atob(result.excel);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = result.excelName; a.click();
+    URL.revokeObjectURL(url);
+
+    setStatus('&#10003; Thank you! Your submission has been received by 3 Tier Beverages. A copy of the NPC Excel file has been downloaded to your device for your records.', 'status-success');
+
+  } catch(e) {
+    console.error(e);
+    setStatus('&#10007; Something went wrong: ' + e.message + '<br>Please try again or contact emily@3tierbeverages.com', 'status-error');
+  }
+
+  btn.disabled = false;
+}
+
+// ── Init ──────────────────────────────────────
+document.querySelectorAll('input[name=coding]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('sat-wrap').style.display =
+      r.value === 'Code by Saturday Date' ? 'block' : 'none';
+  });
+});
+addProduct();
+</script>
+</body>
+</html>
