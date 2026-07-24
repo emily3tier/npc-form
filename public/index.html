@@ -175,7 +175,7 @@ function emptyProduct() {
 }
 
 function addProduct() {
-    if (productCount >= 5) { alert("Maximum 5 products per submission.\nPlease submit again for any additional products."); return; }
+    if (products.length >= 5) { alert("Maximum 5 products per submission.\nPlease submit again for any additional products."); return; }
   products.push(emptyProduct());
   renderProducts();
   setTimeout(() => {
