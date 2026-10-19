@@ -209,7 +209,10 @@ module.exports = async (req, res) => {
     await ensureFolder(token, '', BASE_FOLDER);
     await ensureFolder(token, BASE_FOLDER, clientSafe);
     await ensureFolder(token, BASE_FOLDER + '/' + clientSafe, date);
-    for (const p of products) await ensureFolder(token, submissionFolder, p.folderName);
+    for (const p of products) {
+      p.folderName = (p.folderName || '').replace(/[\/\\:*?"<>|]/g, '-').trim();
+      if (p.folderName) await ensureFolder(token, submissionFolder, p.folderName);
+    }
 
     // Generate and upload Excel
     const templateBuf = await graphDownload(token, '/me/drive/root:/' + enc(TEMPLATE_NAME) + ':/content');
